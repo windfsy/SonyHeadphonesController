@@ -60,12 +60,18 @@ internal static class BatteryChargingStatus
 
 /// <summary>
 /// NCASM InquiredType byte values from NcAsmInquiredType.java.
-/// We use NC_MODE_SWITCH_AND_ASM_SEAMLESS (0x14) for the SET_PARAM command, which
-/// carries the full 7-byte layout including the ambient-sound volume level.
+/// Two relevant forms:
+///   NC_MODE_SWITCH_AND_ASM_SEAMLESS (0x14) — full 7-byte layout incl. ambient volume level.
+///   NC_MODE_SWITCH_AND_ASM_ON_OFF   (0x17) — used by mos9527's SonyHeadphonesClient for XM5,
+///                                            verified against real device.
+/// We use 0x17 because it's the form tested against WF-1000XM5 by the community.
 /// </summary>
 internal static class NcAsmInquiredType
 {
     public const byte NC_MODE_SWITCH_AND_ASM_SEAMLESS = 0x14;
+    public const byte NC_MODE_SWITCH_AND_ASM_ON_OFF = 0x17;
+    // The form actually used by SetAncMode/GetAncMode:
+    public const byte Used = NC_MODE_SWITCH_AND_ASM_ON_OFF;
 }
 
 internal static class NcAsmOnOffValue
@@ -78,6 +84,17 @@ internal static class NcValue
 {
     public const byte Off = 0x00;
     public const byte NoiseCancelling = 0x01; // single
+}
+
+/// <summary>
+/// For the 0x17 InquiredType layout, the "nc/asm selector" field is 0=NC, 1=ASM
+/// (opposite of the NcValue enum used for the 0x14 layout). From NC_ASM_SETTING_TYPE_V2
+/// in mos9527/SonyHeadphonesClient Constants.h.
+/// </summary>
+internal static class NcAsmSettingTypeV2
+{
+    public const byte NoiseCancelling = 0x00;
+    public const byte AmbientSound = 0x01;
 }
 
 internal static class AmbientSoundMode

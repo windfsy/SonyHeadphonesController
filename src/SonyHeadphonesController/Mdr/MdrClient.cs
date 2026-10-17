@@ -13,6 +13,7 @@ internal sealed class MdrClient : IDisposable
     private MdrConnection? _conn;
 
     public event Action<BatteryStatus>? OnBatteryNotification;
+    public event Action<AncState>? OnAncNotification;
     public bool IsConnected => _conn?.IsConnected ?? false;
 
     /// <summary>
@@ -89,41 +90,84 @@ internal sealed class MdrClient : IDisposable
     }
 
     /// <summary>
-    /// Set ANC mode. Maps the three UI states to the v2 7-byte SET_PARAM layout.
-    /// Payload: 68 14 01 <on/off> <ncValue> <ambientMode> <level>
+    /// Query current ANC/ambient sound state. Issues NCASM_GET_PARAM with InquiredType=0x17
+    /// and parses the 8-byte RET_PARAM: 67 17 01 <on/off> <NC:0/ASM:1> <voicePassthrough> <level>.
+    /// Layout matches mos9527/SonyHeadphonesClient serializeNcAndAsmSettingV2 (verified against XM5).
     /// </summary>
-    public void SetAncMode(AncMode mode, byte ambientLevel = 0)
+    public AncState GetAncMode()
+    {
+        EnsureConnected();
+        byte[] ret = _conn!.SendCommand(
+            new byte[] { CommandId.NCASM_GET_PARAM, NcAsmInquiredType.Used },
+            CommandId.NCASM_RET_PARAM,
+            retSubType: NcAsmInquiredType.Used,
+            timeoutMs: 3000);
+
+        return ParseAncState(ret);
+    }
+
+    private static AncState ParseAncState(byte[] ret)
+    {
+        // Real layout on WF-1000XM5 firmware 6.x (verified by hex dump):
+        //   67 17 01 <on/off> <NC:0 / ASM:1> <reserved=0> <level>
+        // The full payload returned/forwarded by MdrConnection.SendCommand is exactly these
+        // 7 bytes (the leading 0x67 command byte is part of the payload, not stripped).
+        // Layout: [0]=cmd [1]=inquired [2]=change [3]=on/off [4]=nc/asm [5]=reserved [6]=level
+        if (ret.Length < 7)
+            throw new InvalidOperationException($"ANC RET too short: {ret.Length} bytes (hex: {ToHex(ret)})");
+
+        byte onOff = ret[3];
+        byte ncAsmSelector = ret[4]; // 0=NC, 1=ASM
+        byte voicePassthrough = ret[5];
+        byte level = ret[6];
+
+        var mode = (onOff, ncAsmSelector) switch
+        {
+            (0x00, _) => AncMode.Off,
+            (0x01, 0x01) => AncMode.AmbientSound,
+            (0x01, 0x00) => AncMode.NoiseCancelling,
+            _ => throw new InvalidOperationException(
+                $"Unknown ANC state: onOff={onOff} ncAsm={ncAsmSelector} (hex: {ToHex(ret)})"),
+        };
+
+        return new AncState
+        {
+            Mode = mode,
+            AmbientLevel = level,
+            AmbientMode = voicePassthrough == 0x01 ? AmbientModeKind.Voice : AmbientModeKind.Normal,
+        };
+    }
+
+    private static string ToHex(byte[] b) => string.Join(' ', b.Select(x => $"{x:X2}"));
+
+    /// <summary>
+    /// Set ANC mode. Real layout on WF-1000XM5 firmware 6.x (verified by hex dump):
+    ///   68 17 01 <on/off> <NC:0 / ASM:1> <reserved=0> <level>
+    /// Total 8 bytes. The byte at index [5] is reserved/voice-passthrough (always 0 for our use);
+    /// the level lives at index [6]. SET does not return a typed RET; ACK only.
+    /// The device pushes NTFY_PARAM (0x69) with the new state, surfaced via OnAncNotification.
+    /// </summary>
+    public bool SetAncMode(AncMode mode, byte ambientLevel = 0)
     {
         EnsureConnected();
         if (ambientLevel > 20) ambientLevel = 20;
 
         byte onOff = mode == AncMode.Off ? NcAsmOnOffValue.Off : NcAsmOnOffValue.On;
-        byte ncValue = mode == AncMode.NoiseCancelling ? NcValue.NoiseCancelling : NcValue.Off;
-        byte ambient = AmbientSoundMode.Normal;
+        byte ncAsmField = mode == AncMode.AmbientSound ? NcAsmSettingTypeV2.AmbientSound
+                                                       : NcAsmSettingTypeV2.NoiseCancelling;
 
         var payload = new byte[]
         {
-            CommandId.NCASM_SET_PARAM,                                  // 0x68
-            NcAsmInquiredType.NC_MODE_SWITCH_AND_ASM_SEAMLESS,          // 0x14
-            ValueChangeStatus.Changed,                                  // 0x01
-            onOff,
-            ncValue,
-            ambient,
-            ambientLevel,
+            CommandId.NCASM_SET_PARAM,                          // 0x68 [0]
+            NcAsmInquiredType.Used,                             // 0x17 [1]
+            ValueChangeStatus.Changed,                          // 0x01 [2]
+            onOff,                                              //      [3]
+            ncAsmField,                                         //      [4] 0=NC 1=ASM
+            0x00,                                               //      [5] reserved/voice-passthrough
+            ambientLevel,                                       //      [6] 0-20
         };
 
-        // SET_PARAM does not return a typed RET; the device replies with NTFY_PARAM (0x69)
-        // carrying the new state. We send and trust the notification path to update us.
-        // SendCommand waits for an ACK at minimum; SET_PARAM typically gets no RET but does get ACK.
-        // If the wait times out, the command may still have applied; surface as informational.
-        try
-        {
-            _conn!.SendCommand(payload, CommandId.NCASM_NTFY_PARAM, timeoutMs: 1500);
-        }
-        catch (TimeoutException)
-        {
-            // Acceptable: ACK seen but no NTFY within window. UI will refresh on next NTFY.
-        }
+        return _conn!.SendCommandAckOnly(payload, timeoutMs: 2000);
     }
 
     private void HandleNotification(Message msg)
@@ -151,6 +195,18 @@ internal sealed class MdrClient : IDisposable
             }
             OnBatteryNotification?.Invoke(b);
         }
+        else if (cmd == CommandId.NCASM_NTFY_PARAM && msg.Payload.Length >= 7)
+        {
+            try
+            {
+                var state = ParseAncState(msg.Payload);
+                OnAncNotification?.Invoke(state);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[MDR] ANC NTFY parse error: {ex.Message}");
+            }
+        }
     }
 
     private void EnsureConnected()
@@ -167,6 +223,23 @@ internal sealed class MdrClient : IDisposable
 }
 
 internal enum AncMode { Off, NoiseCancelling, AmbientSound }
+
+internal enum AmbientModeKind { Normal, Voice }
+
+internal sealed class AncState
+{
+    public AncMode Mode { get; set; }
+    public byte AmbientLevel { get; set; }
+    public AmbientModeKind AmbientMode { get; set; }
+
+    public override string ToString() => Mode switch
+    {
+        AncMode.Off => "关闭",
+        AncMode.NoiseCancelling => "降噪",
+        AncMode.AmbientSound => $"环境声 等级{AmbientLevel} ({AmbientMode})",
+        _ => "未知",
+    };
+}
 
 internal sealed class BatteryStatus
 {

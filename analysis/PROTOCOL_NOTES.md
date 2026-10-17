@@ -60,24 +60,47 @@ SDP 服务 UUID（`lm0/i.java`，v2 优先）：
 
 命令码：`NCASM_GET_STATUS=0x62`，`NCASM_RET_STATUS=0x63`，`NCASM_SET_STATUS=0x64`，`NCASM_NTFY_STATUS=0x65`，`NCASM_GET_PARAM=0x66`，`NCASM_RET_PARAM=0x67`，`NCASM_SET_PARAM=0x68`，`NCASM_NTFY_PARAM=0x69`。
 
-**推荐用 SET_PARAM（0x68），InquiredType = NC_MODE_SWITCH_AND_ASM_SEAMLESS (0x14)**（`sn0/i1.java`）：
+**实际可用 InquiredType = 0x17 (NC_MODE_SWITCH_AND_ASM_ON_OFF)**（来源：mos9527 SonyHeadphonesClient，并在 WF-1000XM5 真机上验证响应）。
+注意：APK `NcAsmInquiredType.java` 把 0x14 (NC_MODE_SWITCH_AND_ASM_SEAMLESS) 列为更"完整"形态，但实测 XM5 firmware 6.x 对 0x14 的 GET_PARAM 不回 RET_PARAM（超时）；改用 0x17 后才正确响应。
+
+**真机验证的字节布局（7 字节 RET/NTFY payload，含命令字节）**：
 
 ```
-68 14 01 00 <NcAsmMode> <NcValue> <AmbientSoundMode> <Volume>
+GET:  66 17                          ->  RET:  67 17 01 <开关> <NC:0/ASM:1> <reserved=00> <level>
+SET:  68 17 01 <开关> <NC:0/ASM:1> <reserved=00> <level>   ->  ACK + NTFY 69 17 01 <开关> <NC/ASM> <00> <level>
+NTFY: 69 17 01 <开关> <NC:0/ASM:1> <reserved=00> <level>
 ```
 
-| 字节 | 含义 | 取值 |
+| 字节索引 | 含义 | 取值 |
 |---|---|---|
-| `0` | 命令 | `0x68` |
-| `1` | InquiredType | `0x14`（MODE_SWITCH_AND_ASM_SEAMLESS） |
-| `2` | ValueChangeStatus | `0x01`=CHANGED（0=UNDER_CHANGING） |
-| `3` | NcAsmOnOffValue | `0x00`=OFF, `0x01`=ON |
-| `4` | NcValue | `0`=OFF, `1`=NC单, `2`=NC双, `3`=AUTO, `4`=AUTO单, `5`=AUTO双 |
-| `5` | AmbientSoundMode | `0`=NORMAL, `1`=VOICE |
-| `6` | ASM Volume | 0-255（实际 0-20，`un0/l.java` 校验 0..255） |
+| `[0]` | 命令 | GET=0x66 RET=0x67 SET=0x68 NTFY=0x69 |
+| `[1]` | InquiredType | 0x17 (NC_MODE_SWITCH_AND_ASM_ON_OFF) |
+| `[2]` | ValueChangeStatus | 0x01=CHANGED（0x00=UNDER_CHANGING） |
+| `[3]` | NcAsmOnOffValue | 0x00=OFF, 0x01=ON |
+| `[4]` | NC/ASM 选择 | 0x00=Noise Cancelling, 0x01=Ambient Sound |
+| `[5]` | reserved/voice-passthrough | 0x00=Normal, 0x01=Voice（实测一直为 0） |
+| `[6]` | ASM Volume 等级 | 0-20 (0x00-0x14)，仅环境声模式生效 |
 
-帧总长 7 字节（`un0/l.d()` 校验 `length==7`）。回复走 RET_PARAM 0x67 / NTFY_PARAM 0x69 同布局。
-（社区 mos9527 实现为 `68 17 01 ...`，InquiredType 0x17=NC_MODE_SWITCH_AND_ASM_ON_OFF，同样有效——0x14 与 0x17 是同一族两种形态。）
+**真机抓包样本**（左 28% 右 100%，环境声等级 20）：
+- 降噪 RET: `67 17 01 01 00 00 0A`
+- 环境声等级 10 RET: `67 17 01 01 01 00 0A`
+- 环境声等级 20 RET: `67 17 01 01 01 00 14`
+- 环境声等级 1 RET: `67 17 01 01 01 00 01`
+- 关闭 RET: `67 17 01 00 00 00 0A`（level 字段保持上次值，不重置）
+
+**关键提醒**：mos9527 源码注释里说 SET 是 8 字节带 "voice passthrough" 字段，但真机 RET 实际是 7 字节（含命令字节）。SET 也按 7 字节发送即可正确生效——8 字节变体的多余字段会被耳机忽略或截断，但不会破坏功能。这是社区注释与真机不一致的典型情况，**以真机抓包为准**。
+
+**重要发现：等级字段位置曾错位**。最初按社区注释把 level 放在 `[5]`，导致 SET 命令看似成功（ACK 收到、NTFY 推送）但 level 始终为 0——耳朵听不出环境声等级变化。把 level 移到 `[6]`、`[5]` 固定为 0x00 后，等级 1/10/20 的差异立刻在耳朵上可辨。
+
+### UI 操作映射（MVP）
+
+| UI 状态 | SET payload |
+|---|---|
+| 切到降噪 | `68 17 01 01 00 00 00` |
+| 切到环境声 等级 N | `68 17 01 01 01 00 <N>` |
+| 切到关闭 | `68 17 01 00 00 00 00` |
+
+回复走 RET_PARAM 0x67 / NTFY_PARAM 0x69 同布局。耳机端（手机 Sound Connect）改动会通过 NTFY 自动推送。
 
 ### 3.4 语音提示音量（table2 → `DATA_MDR_NO2`，`ap0/`）
 

@@ -102,7 +102,59 @@ internal sealed class MdrConnection : IDisposable
             _ackSeen = false;
         }
         throw new TimeoutException(
-            $"No matching RET 0x{retCommandId:X2} within {timeoutMs} ms (ack seen = {_ackSeen})");
+            $"No matching RET 0x{retCommandId:X2} within {timeoutMs} ms");
+    }
+
+    /// <summary>
+    /// Send a command that only requires an ACK (no RET). Used for SET_PARAM commands whose
+    /// effect is confirmed asynchronously via NTFY_PARAM, not by a typed RET reply.
+    /// Returns true if ACK was received within timeout, false otherwise.
+    /// </summary>
+    public bool SendCommandAckOnly(byte[] commandBytes, int timeoutMs = 2000)
+    {
+        lock (_lock)
+        {
+            if (_pendingAckSeq != 0xFF)
+                throw new InvalidOperationException("A command is already in flight.");
+            _pendingAckSeq = _sendSeq;
+            _pendingRetCommandId = 0xFF; // 0xFF => match no RET, only the ACK
+            _pendingRetSubType = 0xFF;
+            _matchedRet = null;
+            _ackSeen = false;
+        }
+
+        byte[] frame = Frame.Encode(Frame.DataTypeDataMdr, _sendSeq, commandBytes);
+        _socket.Send(frame);
+        _sendSeq = (byte)(1 - _sendSeq); // toggle for the next command
+
+        var sw = Stopwatch.StartNew();
+        while (sw.ElapsedMilliseconds < timeoutMs)
+        {
+            lock (_lock)
+            {
+                if (_ackSeen)
+                {
+                    _matchedRet = null;
+                    _pendingAckSeq = 0xFF;
+                    _pendingRetCommandId = 0xFF;
+                    _pendingRetSubType = 0xFF;
+                    _ackSeen = false;
+                    return true;
+                }
+            }
+            Thread.Sleep(10);
+        }
+
+        // Timeout: clear pending state so a subsequent SendCommand isn't blocked.
+        lock (_lock)
+        {
+            _matchedRet = null;
+            _pendingAckSeq = 0xFF;
+            _pendingRetCommandId = 0xFF;
+            _pendingRetSubType = 0xFF;
+            _ackSeen = false;
+        }
+        return false;
     }
 
     private void ReaderLoop()
