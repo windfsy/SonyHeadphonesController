@@ -1,0 +1,29 @@
+# Normalize line endings: LF in the repository, native on checkout
+* text=auto eol=lf
+
+# Source files
+*.cs text eol=lf
+*.xaml text eol=lf
+*.csproj text eol=lf
+*.sln text eol=crlf
+*.props text eol=lf
+*.manifest text eol=lf
+*.ps1 text eol=crlf
+
+# Docs & config
+*.md text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Windows binaries
+*.exe binary
+*.dll binary
+*.pdb binary
+
+# Firmware / media binaries
+*.so binary
+*.dex binary
+*.apk binary
+*.png binary
+*.ico binary
