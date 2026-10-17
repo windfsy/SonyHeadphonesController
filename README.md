@@ -2,7 +2,7 @@
 
 Windows 托盘常驻控制器，为 Sony WF-1000XM5 提供 Sound Connect 的核心功能——ANC 切换与电量查看，弥补官方 app 不支持 Windows 的空白。
 
-基于对 Sound Connect (Android) v13.3.0 APK 的逆向分析实现的 Sony MDR v2 蓝牙协议（明文、RFCOMM 通道），协议细节见 [analysis/PROTOCOL_NOTES.md](analysis/PROTOCOL_NOTES.md)，需求规格见 [SPEC.md](SPEC.md)。
+基于对 Sound Connect (Android) v13.3.0 APK 的逆向分析实现的 Sony MDR v2 蓝牙协议（明文、RFCOMM 通道），协议细节见 [docs/PROTOCOL_NOTES.md](docs/PROTOCOL_NOTES.md)，需求规格见 [docs/SPEC.md](docs/SPEC.md)。
 
 ## 功能
 
@@ -30,16 +30,22 @@ Windows 托盘常驻控制器，为 Sony WF-1000XM5 提供 Sound Connect 的核�
 ## 开发
 
 ```
-src/SonyHeadphonesController/
-├── Transport/     # 蓝牙传输层：AF_BTH RFCOMM socket + 配对设备枚举
-├── Mdr/           # Sony MDR v2 协议层：帧编解码 + 命令收发 + ACK/序列号
-├── App/           # 应用层：连接状态机 + 设备事件监听 + 命令防护
-└── UI/            # WPF：托盘 + 控制面板 + 设备选择 + ViewModel
+SonyHeadphonesController/
+├── docs/           # 需求规格 + 协议逆向笔记 + 诊断脚本
+├── src/
+│   └── SonyHeadphonesController/
+│       ├── Transport/     # 蓝牙传输层：AF_BTH RFCOMM socket + 配对设备枚举
+│       ├── Mdr/           # Sony MDR v2 协议层：帧编解码 + 命令收发 + ACK/序列号
+│       ├── App/           # 应用层：连接状态机 + 设备事件监听 + 命令防护
+│       └── UI/            # WPF：托盘 + 控制面板 + 设备选择 + ViewModel
+└── SonyHeadphonesController.sln
 ```
 
-构建：`dotnet build`；发布：`dotnet publish -c Release -o publish`。
+构建：`dotnet build SonyHeadphonesController.sln`；发布：`dotnet publish src/SonyHeadphonesController -c Release -o publish`。
 
 诊断日志（托盘应用无控制台）：`%TEMP%\SonyHeadphonesController.diag.log`。
+
+欢迎贡献，见 [CONTRIBUTING.md](CONTRIBUTING.md)；变更记录见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 排障
 
@@ -58,5 +64,5 @@ src/SonyHeadphonesController/
 
 ## 参考
 
-- 协议逆向笔记：[analysis/PROTOCOL_NOTES.md](analysis/PROTOCOL_NOTES.md)（含 APK 反编译证据索引）
+- 协议逆向笔记：[docs/PROTOCOL_NOTES.md](docs/PROTOCOL_NOTES.md)（含 APK 反编译证据索引）
 - 社区参考：mos9527/SonyHeadphonesClient、whitebeard10/SonyCompanionApp、ohm-app/sony-headphones-bluetooth-documentation

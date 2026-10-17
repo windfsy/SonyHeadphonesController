@@ -1,7 +1,11 @@
 # Sony WF-1000XM5 蓝牙控制协议 — 逆向分析结果
 
 来源：Sound Connect (Android) v13.3.0 APK 反编译（jadx），与社区逆向成果交叉验证。
-分析日期：2026-10-17。反编译源码位于 `analysis/jadx_out/sources/`。
+分析日期：2026-10-17。
+
+> [!NOTE]
+> 本文档引用的 `ep0/c.java`、`lm0/i.java` 等证据文件来自本地分析工作区的 jadx 反编译输出，
+> 未随本仓库分发（体积大且为专有代码）。如需复现分析，请自行反编译对应版本 APK。
 
 ## 1. 传输层
 
@@ -122,7 +126,7 @@ CONNECT 0x00-0x07 / GET_TEST 0x0F / COMMON 0x10-0x19 / POWER 0x20-0x29 / UPDT(FO
 
 每族内：GET_CAPABILITY=n, RET=n+1, GET_STATUS=n+2, RET=n+3, SET_STATUS=n+4, NTFY_STATUS=n+5, GET_PARAM=n+6, RET_PARAM=n+7, SET_PARAM=n+8, NTFY_PARAM=n+9。
 
-## 5. 证据文件索引（jadx 输出，相对 `analysis/jadx_out/sources/`）
+## 5. 证据文件索引（jadx 反编译输出中的相对路径，本地工作区，未随仓库分发）
 
 | 内容 | 文件 |
 |---|---|

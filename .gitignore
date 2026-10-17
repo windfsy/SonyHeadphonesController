@@ -12,9 +12,10 @@
 *.suo
 
 # APK analysis artifacts (large, regeneratable from APK)
-analysis/jadx_out/
-analysis/apk/
-analysis/jadx_log.txt
+# Analysis workspace lives OUTSIDE the repo: ../_analysis_workspace/
 *.apk
 publish/
+
+# Local tooling residue
+.v2c/
 .zcode/

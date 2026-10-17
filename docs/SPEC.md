@@ -35,7 +35,7 @@
 | 蓝牙 API | `ws2_32.dll` P/Invoke：`socket(AF_BTH, SOCK_STREAM, BTHPROTO_RFCOMM)` + `SOCKADDR_BTH` 填 v2 SDP UUID |
 | 设备枚举 | `BluetoothFindFirstDevice/Next`（`bthprops.cpl`） |
 | 连接事件监听 | `RegisterDeviceNotification` 监听蓝牙设备 arrival/removal |
-| 协议层 | MDR v2 自实现（参考 `analysis/PROTOCOL_NOTES.md` 与社区实现 mos9527/SonyHeadphonesClient、whitebeard10/SonyCompanionApp） |
+| 协议层 | MDR v2 自实现（参考 [PROTOCOL_NOTES.md](PROTOCOL_NOTES.md) 与社区实现 mos9527/SonyHeadphonesClient、whitebeard10/SonyCompanionApp） |
 | 发布形态 | framework-dependent（依赖系统 .NET 运行时，体积小） |
 
 ### 3.1 架构分层
@@ -229,8 +229,8 @@
 
 ## 9. 参考资料
 
-- 协议规范（一手证据）：`analysis/PROTOCOL_NOTES.md`
-- APK 反编译源码：`analysis/jadx_out/sources/`
+- 协议规范（一手证据）：[PROTOCOL_NOTES.md](PROTOCOL_NOTES.md)
+- APK 反编译源码：本地分析工作区（未随仓库分发）
 - 社区参考实现：
   - mos9527/SonyHeadphonesClient（339★，活跃维护，WF-1000XM5 全功能 ✅）
   - whitebeard10/SonyCompanionApp（Windows C++，AF_BTH 直连，明确支持 WF-1000XM5）

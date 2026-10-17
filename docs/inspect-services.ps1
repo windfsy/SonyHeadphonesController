@@ -1,5 +1,11 @@
+param(
+    # 12-hex-digit MAC of the device to inspect, e.g. ./inspect-services.ps1 -Mac AABBCCDDEEFF
+    [Parameter(Mandatory = $true)]
+    [string]$Mac
+)
+
 $ErrorActionPreference = 'Continue'
-$bts = Get-PnpDevice -Class Bluetooth | Where-Object { $_.InstanceId -like '*AABBCCDDEEFF*' }
+$bts = Get-PnpDevice -Class Bluetooth | Where-Object { $_.InstanceId -like "*$Mac*" }
 foreach ($d in $bts) {
     Write-Host ""
     Write-Host "=== $($d.FriendlyName) ==="
