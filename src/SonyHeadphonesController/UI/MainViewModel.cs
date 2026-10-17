@@ -52,6 +52,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             _panel.PositionNearTray();
             _panel.Show();
             _panel.Activate();
+            _panel.PlayEntranceAnimation();
         }
     }
 
@@ -69,9 +70,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public bool IsConnected => _connection.ConnState == ConnectionManager.State.Connected;
     public bool IsUnresponsive => _connection.IsUnresponsive;
 
-    public int BatteryLeft => _connection.Battery?.LeftPercent ?? -1;
-    public int BatteryRight => _connection.Battery?.RightPercent ?? -1;
-    public int BatteryCase => _connection.Battery?.CasePercent ?? -1;
+    public string BatteryLeftText => _connection.Battery is { HasLeft: true } b1 ? $"{b1.LeftPercent}%" : "--";
+    public string BatteryRightText => _connection.Battery is { HasRight: true } b2 ? $"{b2.RightPercent}%" : "--";
+    public string BatteryCaseText => _connection.Battery is { HasCase: true } b3 ? $"{b3.CasePercent}%" : "--";
 
     public Visibility LeftChargingVisible => ChargingToVis(_connection.Battery?.LeftCharging ?? 0);
     public Visibility RightChargingVisible => ChargingToVis(_connection.Battery?.RightCharging ?? 0);
@@ -125,9 +126,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         get
         {
             var b = _connection.Battery;
-            int pct = b is null ? -1
-                : b.LeftPercent >= 0 && b.RightPercent >= 0 ? Math.Min(b.LeftPercent, b.RightPercent)
-                : Math.Max(b.LeftPercent, b.RightPercent);
+            // Lowest of the known buds only — a missing bud (-1) is not a 0% reading.
+            int pct = b?.TrayPercent ?? -1;
 
             var colour = !IsConnected ? Colors.Gray
                 : pct < 0 ? Colors.Gray
@@ -211,7 +211,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         foreach (var name in new[]
         {
                  nameof(DeviceName), nameof(StateText), nameof(IsConnected), nameof(IsUnresponsive),
-                 nameof(BatteryLeft), nameof(BatteryRight), nameof(BatteryCase),
+                 nameof(BatteryLeftText), nameof(BatteryRightText), nameof(BatteryCaseText),
                  nameof(LeftChargingVisible), nameof(RightChargingVisible), nameof(CaseChargingVisible),
                  nameof(IsNoiseCancelling), nameof(IsAmbientSound), nameof(IsAncOff),
                  nameof(AmbientLevel), nameof(AmbientLevelText), nameof(AmbientLevelEnabled),

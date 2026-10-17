@@ -249,12 +249,33 @@ public sealed class AncState
 
 public sealed class BatteryStatus
 {
+    // -1 means "unknown" (never reported). A connected bud at 0% is a real reading, not unknown.
     public int LeftPercent = -1;
     public byte LeftCharging;
     public int RightPercent = -1;
     public byte RightCharging;
     public int CasePercent = -1;
     public byte CaseCharging;
+
+    public bool HasLeft => LeftPercent >= 0;
+    public bool HasRight => RightPercent >= 0;
+    public bool HasCase => CasePercent >= 0;
+
+    /// <summary>
+    /// Percentage shown on the tray icon: lowest of the *known* buds, so a missing bud
+    /// (-1) doesn't drag the tray to 0 and doesn't mask a real low-battery warning.
+    /// </summary>
+    public int TrayPercent
+    {
+        get
+        {
+            var known = new List<int>();
+            if (HasLeft) known.Add(LeftPercent);
+            if (HasRight) known.Add(RightPercent);
+            if (known.Count == 0) return -1;
+            return known.Min();
+        }
+    }
 
     public override string ToString()
     {

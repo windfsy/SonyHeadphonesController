@@ -14,44 +14,66 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
 
-        <!-- ANC three-state buttons: active state highlighted via Tag=true -->
+        <!-- Entrance animation runs in code-behind on every Show (Loaded only fires once).
+             RenderTransform is rebuilt per Show because Setter-created values are frozen. -->
+        <Style x:Key="FlyoutCard" TargetType="Border"/>
+
+        <!-- ANC three-state buttons; Tag=true marks the active mode, smooth hover/press transitions -->
         <Style x:Key="AncButton" TargetType="Button">
             <Setter Property="Padding" Value="0,8"/>
             <Setter Property="FontSize" Value="13"/>
-            <Setter Property="Background" Value="#EDEDED"/>
-            <Setter Property="Foreground" Value="#222"/>
-            <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
-                                CornerRadius="6" Padding="{TemplateBinding Padding}">
+                        <Border x:Name="Bd" CornerRadius="6" Padding="{TemplateBinding Padding}"
+                                Background="#EDEDED">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup Name="CommonStates">
+                                    <VisualStateGroup.Transitions>
+                                        <VisualTransition GeneratedDuration="0:0:0.12">
+                                            <VisualTransition.GeneratedEasingFunction>
+                                                <QuadraticEase EasingMode="EaseOut"/>
+                                            </VisualTransition.GeneratedEasingFunction>
+                                        </VisualTransition>
+                                    </VisualStateGroup.Transitions>
+                                    <VisualState Name="Normal"/>
+                                    <VisualState Name="MouseOver">
+                                        <Storyboard>
+                                            <ColorAnimation Storyboard.TargetName="Bd"
+                                                            Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
+                                                            To="#DCDCDC" Duration="0:0:0.08"/>
+                                        </Storyboard>
+                                    </VisualState>
+                                    <VisualState Name="Pressed">
+                                        <Storyboard>
+                                            <ColorAnimation Storyboard.TargetName="Bd"
+                                                            Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
+                                                            To="#C8C8C8" Duration="0:0:0.04"/>
+                                        </Storyboard>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
                         </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="Tag" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#0078D4"/>
-                                <Setter Property="Foreground" Value="White"/>
-                            </Trigger>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Opacity" Value="0.85"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
+
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
+
     </Window.Resources>
 
-    <Border Background="#F2FFFFFF"
+    <!-- Panel card: drop shadow + rounded corners for depth layering -->
+    <Border x:Name="Card" Style="{StaticResource FlyoutCard}"
+            Background="#F2FFFFFF"
             CornerRadius="10"
-            BorderBrush="#22000000"
+            BorderBrush="#1A000000"
             BorderThickness="1"
             Padding="18"
             Margin="8">
         <Border.Effect>
-            <DropShadowEffect BlurRadius="12" ShadowDepth="2" Opacity="0.3"/>
+            <DropShadowEffect BlurRadius="16" ShadowDepth="4" Opacity="0.38"/>
         </Border.Effect>
         <StackPanel>
 
@@ -67,6 +89,12 @@
                            FontSize="11" Foreground="#888" VerticalAlignment="Center"/>
             </Grid>
 
+            <!-- Unresponsive banner (top, above all content) -->
+            <Border Background="#33D32F2F" CornerRadius="6" Padding="8" Margin="0,10,0,0"
+                    Visibility="{Binding IsUnresponsive, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="耳机无响应" Foreground="#D32F2F" FontSize="12" HorizontalAlignment="Center"/>
+            </Border>
+
             <Separator Margin="0,10"/>
 
             <!-- Battery -->
@@ -80,7 +108,7 @@
                 <StackPanel Grid.Column="0" HorizontalAlignment="Center">
                     <TextBlock Text="左耳" FontSize="11" Foreground="#888" HorizontalAlignment="Center"/>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <TextBlock Text="{Binding BatteryLeft, StringFormat={}{0}%}" FontSize="16" FontWeight="Bold"/>
+                        <TextBlock Text="{Binding BatteryLeftText}" FontSize="16" FontWeight="Bold"/>
                         <TextBlock Text="充电中" FontSize="10" Foreground="#666" VerticalAlignment="Bottom" Margin="3,0,0,3"
                                    Visibility="{Binding LeftChargingVisible}"/>
                     </StackPanel>
@@ -88,7 +116,7 @@
                 <StackPanel Grid.Column="1" HorizontalAlignment="Center">
                     <TextBlock Text="右耳" FontSize="11" Foreground="#888" HorizontalAlignment="Center"/>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <TextBlock Text="{Binding BatteryRight, StringFormat={}{0}%}" FontSize="16" FontWeight="Bold"/>
+                        <TextBlock Text="{Binding BatteryRightText}" FontSize="16" FontWeight="Bold"/>
                         <TextBlock Text="充电中" FontSize="10" Foreground="#666" VerticalAlignment="Bottom" Margin="3,0,0,3"
                                    Visibility="{Binding RightChargingVisible}"/>
                     </StackPanel>
@@ -96,7 +124,7 @@
                 <StackPanel Grid.Column="2" HorizontalAlignment="Center">
                     <TextBlock Text="充电盒" FontSize="11" Foreground="#888" HorizontalAlignment="Center"/>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <TextBlock Text="{Binding BatteryCase, StringFormat={}{0}%}" FontSize="16" FontWeight="Bold"/>
+                        <TextBlock Text="{Binding BatteryCaseText}" FontSize="16" FontWeight="Bold"/>
                         <TextBlock Text="充电中" FontSize="10" Foreground="#666" VerticalAlignment="Bottom" Margin="3,0,0,3"
                                    Visibility="{Binding CaseChargingVisible}"/>
                     </StackPanel>
@@ -105,7 +133,7 @@
 
             <Separator Margin="0,12"/>
 
-            <!-- ANC three-state: active mode highlighted via DataTrigger in per-button implicit style -->
+            <!-- ANC three-state: implicit per-button Style with DataTrigger for active highlight -->
             <TextBlock Text="噪声控制" FontSize="12" Foreground="#666" Margin="0,0,0,6"/>
             <UniformGrid Columns="3">
                 <Button Content="降噪" Margin="0,0,6,0"
@@ -149,7 +177,7 @@
                 </Button>
             </UniformGrid>
 
-            <!-- Ambient level slider -->
+            <!-- Ambient level slider: free-form during drag, commit on release -->
             <Grid Margin="0,12,0,0">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -166,16 +194,10 @@
                 <Slider Grid.Row="1" x:Name="AmbientSlider" Minimum="0" Maximum="20"
                         Value="{Binding AmbientLevel}"
                         IsEnabled="{Binding AmbientLevelEnabled}"
-                        TickFrequency="1" IsSnapToTickEnabled="True"
+                        TickFrequency="0.1" IsSnapToTickEnabled="False"
                         Margin="0,4,0,0"
                         Thumb.DragCompleted="OnAmbientDragCompleted"/>
             </Grid>
-
-            <!-- Unresponsive banner -->
-            <Border Background="#33D32F2F" CornerRadius="6" Padding="8" Margin="0,12,0,0"
-                    Visibility="{Binding IsUnresponsive, Converter={StaticResource BoolToVis}}">
-                <TextBlock Text="耳机无响应" Foreground="#D32F2F" FontSize="12" HorizontalAlignment="Center"/>
-            </Border>
 
         </StackPanel>
     </Border>

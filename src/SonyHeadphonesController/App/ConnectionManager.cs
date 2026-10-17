@@ -177,6 +177,8 @@ public sealed class ConnectionManager : IDisposable
         });
         client.OnAncNotification += s => _dispatcher.BeginInvoke(() =>
         {
+            if (s.Mode == AncMode.AmbientSound)
+                _lastKnownAmbientLevel = s.AmbientLevel;
             Anc = s;
             AncChanged?.Invoke(s);
         });
@@ -311,13 +313,14 @@ public sealed class ConnectionManager : IDisposable
         return result;
     }
 
-    /// <summary>UI command: switch ANC to one of the three modes (level preserved for Ambient).</summary>
+    /// <summary>UI command: switch ANC to one of the three modes (level remembered for Ambient).</summary>
     public async Task SetAncModeAsync(AncMode mode)
     {
         byte level;
         if (mode == AncMode.AmbientSound)
-            // Entering ambient: keep current level if already ambient, else default to 10.
-            level = Anc?.Mode == AncMode.AmbientSound ? Anc.AmbientLevel : (byte)10;
+            // Keep the level we last heard from the device (or user's last set) instead of
+            // resetting to 10 every time the user re-enters ambient mode.
+            level = _lastKnownAmbientLevel ?? (Anc?.AmbientLevel ?? 10);
         else
             level = (byte)0;
 
@@ -329,9 +332,13 @@ public sealed class ConnectionManager : IDisposable
     public async Task SetAmbientLevelAsync(byte level)
     {
         if (level > 20) level = 20;
+        _lastKnownAmbientLevel = level;
         await GuardedAsync(c => { c.SetAncMode(AncMode.AmbientSound, level); return (object)true; });
         await RefreshStateAsync();
     }
+
+    /// <summary>Last ambient level seen from device or set by user; null = unknown (use 10).</summary>
+    private byte? _lastKnownAmbientLevel;
 
     // Battery NTFY carries only the slot that changed; merge into the full snapshot.
     private void MergeBattery(BatteryStatus incoming)
