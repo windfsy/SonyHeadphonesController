@@ -1,0 +1,182 @@
+<Window x:Class="SonyCtrl.UI.ControlPanelWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Sony 耳机控制"
+        Width="300" SizeToContent="Height"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        Topmost="True"
+        ResizeMode="NoResize"
+        ShowActivated="True"
+        Deactivated="OnDeactivated">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+
+        <!-- ANC three-state buttons: active state highlighted via Tag=true -->
+        <Style x:Key="AncButton" TargetType="Button">
+            <Setter Property="Padding" Value="0,8"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Background" Value="#EDEDED"/>
+            <Setter Property="Foreground" Value="#222"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="Tag" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#0078D4"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.85"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Border Background="#F2FFFFFF"
+            CornerRadius="10"
+            BorderBrush="#22000000"
+            BorderThickness="1"
+            Padding="18"
+            Margin="8">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="12" ShadowDepth="2" Opacity="0.3"/>
+        </Border.Effect>
+        <StackPanel>
+
+            <!-- Header: device name + connection state -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{Binding DeviceName}"
+                           FontSize="14" FontWeight="SemiBold"/>
+                <TextBlock Grid.Column="1" Text="{Binding StateText}"
+                           FontSize="11" Foreground="#888" VerticalAlignment="Center"/>
+            </Grid>
+
+            <Separator Margin="0,10"/>
+
+            <!-- Battery -->
+            <TextBlock Text="电量" FontSize="12" Foreground="#666" Margin="0,0,0,6"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" HorizontalAlignment="Center">
+                    <TextBlock Text="左耳" FontSize="11" Foreground="#888" HorizontalAlignment="Center"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <TextBlock Text="{Binding BatteryLeft, StringFormat={}{0}%}" FontSize="16" FontWeight="Bold"/>
+                        <TextBlock Text="充电中" FontSize="10" Foreground="#666" VerticalAlignment="Bottom" Margin="3,0,0,3"
+                                   Visibility="{Binding LeftChargingVisible}"/>
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel Grid.Column="1" HorizontalAlignment="Center">
+                    <TextBlock Text="右耳" FontSize="11" Foreground="#888" HorizontalAlignment="Center"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <TextBlock Text="{Binding BatteryRight, StringFormat={}{0}%}" FontSize="16" FontWeight="Bold"/>
+                        <TextBlock Text="充电中" FontSize="10" Foreground="#666" VerticalAlignment="Bottom" Margin="3,0,0,3"
+                                   Visibility="{Binding RightChargingVisible}"/>
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel Grid.Column="2" HorizontalAlignment="Center">
+                    <TextBlock Text="充电盒" FontSize="11" Foreground="#888" HorizontalAlignment="Center"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <TextBlock Text="{Binding BatteryCase, StringFormat={}{0}%}" FontSize="16" FontWeight="Bold"/>
+                        <TextBlock Text="充电中" FontSize="10" Foreground="#666" VerticalAlignment="Bottom" Margin="3,0,0,3"
+                                   Visibility="{Binding CaseChargingVisible}"/>
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+
+            <Separator Margin="0,12"/>
+
+            <!-- ANC three-state: active mode highlighted via DataTrigger in per-button implicit style -->
+            <TextBlock Text="噪声控制" FontSize="12" Foreground="#666" Margin="0,0,0,6"/>
+            <UniformGrid Columns="3">
+                <Button Content="降噪" Margin="0,0,6,0"
+                        Command="{Binding SetAncCommand}" CommandParameter="NoiseCancelling">
+                    <Button.Resources>
+                        <Style TargetType="Button" BasedOn="{StaticResource AncButton}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsNoiseCancelling}" Value="True">
+                                    <Setter Property="Background" Value="#0078D4"/>
+                                    <Setter Property="Foreground" Value="White"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Resources>
+                </Button>
+                <Button Content="环境声" Margin="0,0,6,0"
+                        Command="{Binding SetAncCommand}" CommandParameter="AmbientSound">
+                    <Button.Resources>
+                        <Style TargetType="Button" BasedOn="{StaticResource AncButton}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsAmbientSound}" Value="True">
+                                    <Setter Property="Background" Value="#0078D4"/>
+                                    <Setter Property="Foreground" Value="White"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Resources>
+                </Button>
+                <Button Content="关闭"
+                        Command="{Binding SetAncCommand}" CommandParameter="Off">
+                    <Button.Resources>
+                        <Style TargetType="Button" BasedOn="{StaticResource AncButton}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsAncOff}" Value="True">
+                                    <Setter Property="Background" Value="#0078D4"/>
+                                    <Setter Property="Foreground" Value="White"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Resources>
+                </Button>
+            </UniformGrid>
+
+            <!-- Ambient level slider -->
+            <Grid Margin="0,12,0,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid Grid.Row="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="环境声等级" FontSize="11" Foreground="#666"/>
+                    <TextBlock Grid.Column="1" Text="{Binding AmbientLevelText}" FontSize="11" Foreground="#666"/>
+                </Grid>
+                <Slider Grid.Row="1" x:Name="AmbientSlider" Minimum="0" Maximum="20"
+                        Value="{Binding AmbientLevel}"
+                        IsEnabled="{Binding AmbientLevelEnabled}"
+                        TickFrequency="1" IsSnapToTickEnabled="True"
+                        Margin="0,4,0,0"
+                        Thumb.DragCompleted="OnAmbientDragCompleted"/>
+            </Grid>
+
+            <!-- Unresponsive banner -->
+            <Border Background="#33D32F2F" CornerRadius="6" Padding="8" Margin="0,12,0,0"
+                    Visibility="{Binding IsUnresponsive, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="耳机无响应" Foreground="#D32F2F" FontSize="12" HorizontalAlignment="Center"/>
+            </Border>
+
+        </StackPanel>
+    </Border>
+</Window>

@@ -16,3 +16,5 @@ analysis/jadx_out/
 analysis/apk/
 analysis/jadx_log.txt
 *.apk
+publish/
+.zcode/

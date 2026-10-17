@@ -1,3 +1,4 @@
+using System.Linq;
 using SonyCtrl.Transport;
 
 namespace SonyCtrl.Mdr;
@@ -7,13 +8,17 @@ namespace SonyCtrl.Mdr;
 /// Encapsulates the connection handshake (INIT) and exposes typed operations
 /// for battery and ANC. Notification events surface state pushed by the device.
 /// </summary>
-internal sealed class MdrClient : IDisposable
+public sealed class MdrClient : IDisposable
 {
     private readonly BthSocket _socket = new();
     private MdrConnection? _conn;
 
     public event Action<BatteryStatus>? OnBatteryNotification;
     public event Action<AncState>? OnAncNotification;
+
+    /// <summary>Raised (from the reader thread) when the control-channel link is lost.</summary>
+    public event Action? LinkLost;
+
     public bool IsConnected => _conn?.IsConnected ?? false;
 
     /// <summary>
@@ -25,6 +30,7 @@ internal sealed class MdrClient : IDisposable
         _socket.Connect(bluetoothAddress);
         _conn = new MdrConnection(_socket);
         _conn.OnNotification += HandleNotification;
+        _conn.LinkLost += () => LinkLost?.Invoke();
         _conn.Start();
 
         // INIT handshake: CONNECT_GET_PROTOCOL_INFO = 00 00
@@ -222,11 +228,11 @@ internal sealed class MdrClient : IDisposable
     }
 }
 
-internal enum AncMode { Off, NoiseCancelling, AmbientSound }
+public enum AncMode { Off, NoiseCancelling, AmbientSound }
 
-internal enum AmbientModeKind { Normal, Voice }
+public enum AmbientModeKind { Normal, Voice }
 
-internal sealed class AncState
+public sealed class AncState
 {
     public AncMode Mode { get; set; }
     public byte AmbientLevel { get; set; }
@@ -241,7 +247,7 @@ internal sealed class AncState
     };
 }
 
-internal sealed class BatteryStatus
+public sealed class BatteryStatus
 {
     public int LeftPercent = -1;
     public byte LeftCharging;

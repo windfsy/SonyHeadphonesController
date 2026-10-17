@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO;
 using SonyCtrl.Transport;
 
 namespace SonyCtrl.Mdr;
@@ -163,8 +164,10 @@ internal sealed class MdrConnection : IDisposable
         var frameBuf = new MemoryStream(2048);
         bool inFrame = false;
 
-        while (!_disposed && _socket.Connected)
+        try
         {
+            while (!_disposed && _socket.Connected)
+            {
             int n;
             // Prefer leftover bytes (a previous recv() may have already buffered the next frame start).
             if (_leftover.Length > 0)
@@ -225,8 +228,18 @@ internal sealed class MdrConnection : IDisposable
                     frameBuf.WriteByte(b);
                 }
             }
+            }
+        }
+        finally
+        {
+            // Reader loop exit == link loss (peer closed, socket error, or dispose).
+            // Raise on the reader thread; the app layer marshals to the UI thread.
+            try { LinkLost?.Invoke(); } catch { }
         }
     }
+
+    /// <summary>Raised (from the reader thread) when the socket read loop exits.</summary>
+    public event Action? LinkLost;
 
     private void HandleFrame(byte[] escapedInner)
     {
