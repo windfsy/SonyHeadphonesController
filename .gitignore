@@ -1,0 +1,18 @@
+# Build output
+**/bin/
+**/obj/
+
+# IDE
+.vs/
+.vscode/
+.idea/
+
+# Local user state
+*.user
+*.suo
+
+# APK analysis artifacts (large, regeneratable from APK)
+analysis/jadx_out/
+analysis/apk/
+analysis/jadx_log.txt
+*.apk
