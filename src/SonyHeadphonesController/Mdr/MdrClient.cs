@@ -242,7 +242,7 @@ public sealed class AncState
     {
         AncMode.Off => "关闭",
         AncMode.NoiseCancelling => "降噪",
-        AncMode.AmbientSound => $"环境声 等级{AmbientLevel} ({AmbientMode})",
+        AncMode.AmbientSound => $"通透 等级{AmbientLevel} ({AmbientMode})",
         _ => "未知",
     };
 }

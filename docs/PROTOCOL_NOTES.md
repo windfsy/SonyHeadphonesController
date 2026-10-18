@@ -60,7 +60,7 @@ SDP 服务 UUID（`lm0/i.java`，v2 优先）：
 
 命令码：`POWER_GET_STATUS=0x22`，`POWER_RET_STATUS=0x23`，`POWER_NTFY_STATUS=0x25`（`Command.java`）。
 
-### 3.3 ANC / 环境声（table1，`sn0/`）
+### 3.3 ANC / 通透（table1，`sn0/`）
 
 命令码：`NCASM_GET_STATUS=0x62`，`NCASM_RET_STATUS=0x63`，`NCASM_SET_STATUS=0x64`，`NCASM_NTFY_STATUS=0x65`，`NCASM_GET_PARAM=0x66`，`NCASM_RET_PARAM=0x67`，`NCASM_SET_PARAM=0x68`，`NCASM_NTFY_PARAM=0x69`。
 
@@ -83,25 +83,25 @@ NTFY: 69 17 01 <开关> <NC:0/ASM:1> <reserved=00> <level>
 | `[3]` | NcAsmOnOffValue | 0x00=OFF, 0x01=ON |
 | `[4]` | NC/ASM 选择 | 0x00=Noise Cancelling, 0x01=Ambient Sound |
 | `[5]` | reserved/voice-passthrough | 0x00=Normal, 0x01=Voice（实测一直为 0） |
-| `[6]` | ASM Volume 等级 | 0-20 (0x00-0x14)，仅环境声模式生效 |
+| `[6]` | ASM Volume 等级 | 0-20 (0x00-0x14)，仅通透模式生效 |
 
-**真机抓包样本**（左 28% 右 100%，环境声等级 20）：
+**真机抓包样本**（左 28% 右 100%，通透等级 20）：
 - 降噪 RET: `67 17 01 01 00 00 0A`
-- 环境声等级 10 RET: `67 17 01 01 01 00 0A`
-- 环境声等级 20 RET: `67 17 01 01 01 00 14`
-- 环境声等级 1 RET: `67 17 01 01 01 00 01`
+- 通透等级 10 RET: `67 17 01 01 01 00 0A`
+- 通透等级 20 RET: `67 17 01 01 01 00 14`
+- 通透等级 1 RET: `67 17 01 01 01 00 01`
 - 关闭 RET: `67 17 01 00 00 00 0A`（level 字段保持上次值，不重置）
 
 **关键提醒**：mos9527 源码注释里说 SET 是 8 字节带 "voice passthrough" 字段，但真机 RET 实际是 7 字节（含命令字节）。SET 也按 7 字节发送即可正确生效——8 字节变体的多余字段会被耳机忽略或截断，但不会破坏功能。这是社区注释与真机不一致的典型情况，**以真机抓包为准**。
 
-**重要发现：等级字段位置曾错位**。最初按社区注释把 level 放在 `[5]`，导致 SET 命令看似成功（ACK 收到、NTFY 推送）但 level 始终为 0——耳朵听不出环境声等级变化。把 level 移到 `[6]`、`[5]` 固定为 0x00 后，等级 1/10/20 的差异立刻在耳朵上可辨。
+**重要发现：等级字段位置曾错位**。最初按社区注释把 level 放在 `[5]`，导致 SET 命令看似成功（ACK 收到、NTFY 推送）但 level 始终为 0——耳朵听不出通透等级变化。把 level 移到 `[6]`、`[5]` 固定为 0x00 后，等级 1/10/20 的差异立刻在耳朵上可辨。
 
 ### UI 操作映射（MVP）
 
 | UI 状态 | SET payload |
 |---|---|
 | 切到降噪 | `68 17 01 01 00 00 00` |
-| 切到环境声 等级 N | `68 17 01 01 01 00 <N>` |
+| 切到通透 等级 N | `68 17 01 01 01 00 <N>` |
 | 切到关闭 | `68 17 01 00 00 00 00` |
 
 回复走 RET_PARAM 0x67 / NTFY_PARAM 0x69 同布局。耳机端（手机 Sound Connect）改动会通过 NTFY 自动推送。
