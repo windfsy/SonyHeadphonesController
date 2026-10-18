@@ -97,7 +97,7 @@ NTFY: 69 17 01 <开关> <NC:0/ASM:1> <reserved=00> <level>
 | `[2]` | ValueChangeStatus | 0x01=CHANGED（0x00=UNDER_CHANGING） |
 | `[3]` | NcAsmOnOffValue | 0x00=OFF, 0x01=ON |
 | `[4]` | NC/ASM 选择 | 0x00=Noise Cancelling, 0x01=Ambient Sound |
-| `[5]` | reserved/voice-passthrough | 0x00=Normal, 0x01=Voice（实测一直为 0） |
+| `[5]` | AmbientSoundMode（关注语音） | 0x00=Normal, 0x01=Voice（即 Sound Connect 的「关注语音/Focus on Voice」；实测一直为 0 是因为从未 SET 过 1——App 已支持发送该位，通透+关注语音时真机 NTFY 回 `69 17 01 01 01 01 <level>`） |
 | `[6]` | ASM Volume 等级 | 0-20 (0x00-0x14)，仅通透模式生效 |
 
 **真机抓包样本**（左 28% 右 100%，通透等级 20）：
@@ -133,7 +133,8 @@ NTFY: 69 17 01 <开关> <NC:0/ASM:1> <reserved=00> <level>
 | UI 状态 | SET payload |
 |---|---|
 | 切到降噪 | `68 17 01 01 00 00 00` |
-| 切到通透 等级 N | `68 17 01 01 01 00 <N>` |
+| 切到通透 等级 N（普通） | `68 17 01 01 01 00 <N>` |
+| 切到通透 等级 N（关注语音） | `68 17 01 01 01 01 <N>` |
 | 切到关闭 | `68 17 01 00 00 00 00` |
 
 回复走 RET_PARAM 0x67 / NTFY_PARAM 0x69 同布局。耳机端（手机 Sound Connect）改动会通过 NTFY 自动推送。

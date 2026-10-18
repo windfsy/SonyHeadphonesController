@@ -154,6 +154,20 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     public bool AmbientLevelEnabled => _connection.Anc?.Mode == AncMode.AmbientSound;
 
+    /// <summary>
+    /// Ambient voice focus (Sound Connect「关注语音」). Getter mirrors the device state
+    /// (NTFY-driven); the setter runs on user clicks (TwoWay binding) and sends the SET —
+    /// no echo loop because source→target updates never call the setter.
+    /// </summary>
+    public bool IsVoiceFocus
+    {
+        get => _connection.Anc is { Mode: AncMode.AmbientSound, AmbientMode: AmbientModeKind.Voice };
+        set => _ = _connection.SetAmbientVoiceFocusAsync(value);
+    }
+
+    /// <summary>Voice focus only exists in Ambient mode; grayed out otherwise (like the slider).</summary>
+    public bool VoiceFocusEnabled => AmbientLevelEnabled;
+
     // ---------- Tray icon ----------
     private static readonly string IconCachePath = System.IO.Path.Combine(
         System.IO.Path.GetTempPath(), "SonyHeadphonesController.tray.ico");
@@ -254,6 +268,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                  nameof(LeftChargingVisible), nameof(RightChargingVisible), nameof(CaseChargingVisible),
                  nameof(IsNoiseCancelling), nameof(IsAmbientSound), nameof(IsAncOff),
                  nameof(AmbientLevel), nameof(AmbientLevelText), nameof(AmbientLevelEnabled),
+                 nameof(IsVoiceFocus), nameof(VoiceFocusEnabled),
                  nameof(ProductImageSource),
                  nameof(TrayIconSource), nameof(TrayToolTip),
              })

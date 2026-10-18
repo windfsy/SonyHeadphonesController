@@ -135,7 +135,7 @@ public sealed class MdrClient : IDisposable
 
     /// <summary>
     /// Query current ANC/ambient sound state. Issues NCASM_GET_PARAM with InquiredType=0x17
-    /// and parses the 7-byte RET_PARAM: 67 17 01 &lt;on/off&gt; &lt;NC:0/ASM:1&gt; &lt;voicePassthrough&gt; &lt;level&gt;.
+    /// and parses the 7-byte RET_PARAM: 67 17 01 &lt;on/off&gt; &lt;NC:0/ASM:1&gt; &lt;ambientMode&gt; &lt;level&gt;.
     /// Note: only trustworthy while the buds are worn — unworn, the device auto-pauses NC
     /// and GET reports OFF (see PROTOCOL_NOTES §3.3). Callers must not use a GET read-back
     /// to override state confirmed by NTFY.
@@ -155,16 +155,16 @@ public sealed class MdrClient : IDisposable
     private static AncState ParseAncState(byte[] ret)
     {
         // Real layout on WF-1000XM5 firmware 6.x (verified by hex dump):
-        //   67 17 01 <on/off> <NC:0 / ASM:1> <reserved=0> <level>
+        //   67 17 01 <on/off> <NC:0 / ASM:1> <ambientMode> <level>
         // The full payload returned/forwarded by MdrConnection.SendCommand is exactly these
         // 7 bytes (the leading 0x67 command byte is part of the payload, not stripped).
-        // Layout: [0]=cmd [1]=inquired [2]=change [3]=on/off [4]=nc/asm [5]=reserved [6]=level
+        // Layout: [0]=cmd [1]=inquired [2]=change [3]=on/off [4]=nc/asm [5]=ambientMode [6]=level
         if (ret.Length < 7)
             throw new InvalidOperationException($"ANC RET too short: {ret.Length} bytes (hex: {ToHex(ret)})");
 
         byte onOff = ret[3];
         byte ncAsmSelector = ret[4]; // 0=NC, 1=ASM
-        byte voicePassthrough = ret[5];
+        byte ambientMode = ret[5];
         byte level = ret[6];
 
         var mode = (onOff, ncAsmSelector) switch
@@ -180,7 +180,7 @@ public sealed class MdrClient : IDisposable
         {
             Mode = mode,
             AmbientLevel = level,
-            AmbientMode = voicePassthrough == 0x01 ? AmbientModeKind.Voice : AmbientModeKind.Normal,
+            AmbientMode = ambientMode == AmbientSoundMode.Voice ? AmbientModeKind.Voice : AmbientModeKind.Normal,
         };
     }
 
@@ -188,12 +188,13 @@ public sealed class MdrClient : IDisposable
 
     /// <summary>
     /// Set ANC mode. Real layout on WF-1000XM5 firmware 6.x (verified by hex dump):
-    ///   68 17 01 <on/off> <NC:0 / ASM:1> <reserved=0> <level>
-    /// Total 8 bytes. The byte at index [5] is reserved/voice-passthrough (always 0 for our use);
-    /// the level lives at index [6]. SET does not return a typed RET; ACK only.
+    ///   68 17 01 &lt;on/off&gt; &lt;NC:0 / ASM:1&gt; &lt;ambientMode&gt; &lt;level&gt;
+    /// Total 7 bytes. Byte [5] is the AmbientSoundMode (0=Normal, 1=Voice focus — Sound
+    /// Connect's「关注语音」); only meaningful in Ambient mode but always sent. The level
+    /// lives at index [6]. SET does not return a typed RET; ACK only.
     /// The device pushes NTFY_PARAM (0x69) with the new state, surfaced via OnAncNotification.
     /// </summary>
-    public bool SetAncMode(AncMode mode, byte ambientLevel = 0)
+    public bool SetAncMode(AncMode mode, byte ambientLevel = 0, AmbientModeKind ambientMode = AmbientModeKind.Normal)
     {
         EnsureConnected();
         if (ambientLevel > 20) ambientLevel = 20;
@@ -201,6 +202,8 @@ public sealed class MdrClient : IDisposable
         byte onOff = mode == AncMode.Off ? NcAsmOnOffValue.Off : NcAsmOnOffValue.On;
         byte ncAsmField = mode == AncMode.AmbientSound ? NcAsmSettingTypeV2.AmbientSound
                                                        : NcAsmSettingTypeV2.NoiseCancelling;
+        byte voiceFocus = ambientMode == AmbientModeKind.Voice ? AmbientSoundMode.Voice
+                                                               : AmbientSoundMode.Normal;
 
         var payload = new byte[]
         {
@@ -209,7 +212,7 @@ public sealed class MdrClient : IDisposable
             ValueChangeStatus.Changed,                          // 0x01 [2]
             onOff,                                              //      [3]
             ncAsmField,                                         //      [4] 0=NC 1=ASM
-            0x00,                                               //      [5] reserved/voice-passthrough
+            voiceFocus,                                         //      [5] 0=normal 1=voice focus
             ambientLevel,                                       //      [6] 0-20
         };
 

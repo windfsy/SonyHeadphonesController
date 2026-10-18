@@ -221,7 +221,10 @@ public sealed class ConnectionManager : IDisposable
         {
             Log($"ANC NTFY: {s}");
             if (s.Mode == AncMode.AmbientSound)
+            {
                 _lastKnownAmbientLevel = s.AmbientLevel;
+                _lastKnownAmbientMode = s.AmbientMode;
+            }
             Anc = s;
             AncChanged?.Invoke(s);
         });
@@ -416,24 +419,37 @@ public sealed class ConnectionManager : IDisposable
         ConnState == State.Connected ? RefreshStateAsync() : Task.CompletedTask;
 
     /// <summary>
-    /// UI command: switch ANC to one of the three modes (level remembered for Ambient).
-    /// The device confirms via NTFY_PARAM, which updates Anc through OnAncNotification —
-    /// deliberately NO GET read-back here (matches Sound Connect's behaviour in an HCI
-    /// capture: SET → NTFY only). An immediate GET can land mid-transition, and while the
-    /// buds are unworn the device auto-pauses NC and GET reports OFF — reading back would
-    /// overwrite the correct NTFY state and make the UI snap back to "关闭".
+    /// UI command: switch ANC to one of the three modes (level and voice-focus remembered
+    /// for Ambient). The device confirms via NTFY_PARAM, which updates Anc through
+    /// OnAncNotification — deliberately NO GET read-back here (matches Sound Connect's
+    /// behaviour in an HCI capture: SET → NTFY only). An immediate GET can land
+    /// mid-transition, and while the buds are unworn the device auto-pauses NC and GET
+    /// reports OFF — reading back would overwrite the correct NTFY state and make the UI
+    /// snap back to "关闭".
     /// </summary>
     public async Task SetAncModeAsync(AncMode mode)
     {
         byte level;
+        AmbientModeKind ambientMode;
         if (mode == AncMode.AmbientSound)
-            // Keep the level we last heard from the device (or user's last set) instead of
-            // resetting to 10 every time the user re-enters ambient mode.
+        {
+            // Keep the level / voice-focus we last heard from the device (or the user's
+            // last set) instead of resetting every time the user re-enters ambient mode.
             level = _lastKnownAmbientLevel ?? (Anc?.AmbientLevel ?? 10);
+            ambientMode = _lastKnownAmbientMode ?? (Anc?.AmbientMode ?? AmbientModeKind.Normal);
+        }
         else
+        {
             level = (byte)0;
+            ambientMode = AmbientModeKind.Normal;
+        }
 
-        await GuardedAsync(c => { Log($"ANC SET -> {mode} level={level}"); c.SetAncMode(mode, level); return (object)true; });
+        await GuardedAsync(c =>
+        {
+            Log($"ANC SET -> {mode} level={level} ambientMode={ambientMode}");
+            c.SetAncMode(mode, level, ambientMode);
+            return (object)true;
+        });
     }
 
     /// <summary>UI command: adjust ambient level (only meaningful in Ambient mode).</summary>
@@ -441,11 +457,40 @@ public sealed class ConnectionManager : IDisposable
     {
         if (level > 20) level = 20;
         _lastKnownAmbientLevel = level;
-        await GuardedAsync(c => { Log($"ANC SET level -> {level}"); c.SetAncMode(AncMode.AmbientSound, level); return (object)true; });
+        await GuardedAsync(c =>
+        {
+            Log($"ANC SET level -> {level}");
+            c.SetAncMode(AncMode.AmbientSound, level, CurrentAmbientMode());
+            return (object)true;
+        });
     }
+
+    /// <summary>
+    /// UI command: toggle the ambient-mode voice focus (Sound Connect「关注语音」).
+    /// Only meaningful in Ambient mode; resends the ambient SET with the level unchanged.
+    /// </summary>
+    public Task SetAmbientVoiceFocusAsync(bool enabled)
+    {
+        var mode = enabled ? AmbientModeKind.Voice : AmbientModeKind.Normal;
+        _lastKnownAmbientMode = mode;
+        byte level = _lastKnownAmbientLevel ?? (Anc?.AmbientLevel ?? 10);
+        return GuardedAsync(c =>
+        {
+            Log($"ANC SET ambientMode -> {mode} level={level}");
+            c.SetAncMode(AncMode.AmbientSound, level, mode);
+            return (object)true;
+        });
+    }
+
+    /// <summary>Ambient mode currently active on the device (Normal unless told otherwise).</summary>
+    private AmbientModeKind CurrentAmbientMode() =>
+        Anc?.Mode == AncMode.AmbientSound ? Anc.AmbientMode : (_lastKnownAmbientMode ?? AmbientModeKind.Normal);
 
     /// <summary>Last ambient level seen from device or set by user; null = unknown (use 10).</summary>
     private byte? _lastKnownAmbientLevel;
+
+    /// <summary>Last ambient sound mode (voice focus) seen in ambient mode; null = unknown (use Normal).</summary>
+    private AmbientModeKind? _lastKnownAmbientMode;
 
     // Battery messages arrive per slot group (L/R vs cradle). Overwrite only the groups
     // the message carried — including its -1 (absent bud) readings — so a bud going into

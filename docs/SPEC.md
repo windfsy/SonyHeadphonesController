@@ -13,6 +13,7 @@
 - 经典蓝牙 RFCOMM 控制通道（Sony MDR v2 协议）
 - ANC 三态切换：降噪 / 通透 / 关闭
 - 通透等级调节：0-20
+- 通透「关注语音」开关（Sound Connect 的 Focus on Voice，协议 NCASM 帧第 6 字节）
 - 电量展示：左耳 / 右耳 / 充电盒三体百分比 + 充电状态小标识
 - 设备发现：枚举 Windows 已配对蓝牙设备，首次选择目标
 - 系统托盘常驻 + 单击弹出小控制窗
@@ -86,7 +87,7 @@
 
 字段说明：
 - NcValue：0=OFF, 1=NC单, 2=NC双, 3=AUTO, 4=AUTO单, 5=AUTO双 — MVP 只用 0/1，AUTO 等留扩展
-- AmbientSoundMode：0=普通, 1=人声 — MVP 默认 0（不暴露 UI）
+- AmbientSoundMode：0=普通, 1=人声 — 面板以「关注语音」开关暴露（仅通透模式可调；实际字节布局见 PROTOCOL_NOTES §3.3，InquiredType 已改用真机验证的 0x17）
 - 等级：0-20，仅在通透模式下生效，UI 滑条范围映射
 
 **状态回读**：连接后通过 `NCASM_RET_PARAM (0x67)` / `NCASM_NTFY_PARAM (0x69)` 同布局解析；耳机端（手机 Sound Connect）改动会通过 NTFY 自动推送。

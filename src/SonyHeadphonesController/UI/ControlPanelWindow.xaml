@@ -151,6 +151,36 @@
             </Setter>
         </Style>
 
+        <!-- Voice-focus toggle: compact switch matching the panel's rounded/blue language -->
+        <Style x:Key="ToggleSwitch" TargetType="CheckBox">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Grid>
+                            <Border x:Name="Track" Width="36" Height="20" CornerRadius="10"
+                                    Background="#C8C8C8" VerticalAlignment="Center"/>
+                            <Ellipse x:Name="Knob" Width="14" Height="14" Fill="White"
+                                     HorizontalAlignment="Left" Margin="3,0,0,0"
+                                     VerticalAlignment="Center"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Track" Property="Background" Value="#0078D4"/>
+                                <Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right"/>
+                                <Setter TargetName="Knob" Property="Margin" Value="0,0,3,0"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Track" Property="Background" Value="#E4E4E4"/>
+                                <Setter TargetName="Knob" Property="Fill" Value="#F5F5F5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
     </Window.Resources>
 
     <!-- Panel card: drop shadow + rounded corners for depth layering -->
@@ -303,6 +333,19 @@
                                 Value="{Binding AmbientLevel}"
                                 IsEnabled="{Binding AmbientLevelEnabled}"
                                 Margin="0,6,0,0"/>
+                    </Grid>
+
+                    <!-- Voice focus (Sound Connect「关注语音」): only meaningful in Ambient
+                         mode, grayed out alongside the level slider otherwise -->
+                    <Grid IsEnabled="{Binding VoiceFocusEnabled}" Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="关注语音" Style="{StaticResource SmallText}"
+                                   VerticalAlignment="Center"/>
+                        <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}"
+                                  IsChecked="{Binding IsVoiceFocus}"/>
                     </Grid>
 
                 </StackPanel>
