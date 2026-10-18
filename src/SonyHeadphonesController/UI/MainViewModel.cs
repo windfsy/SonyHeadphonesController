@@ -53,6 +53,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             _panel.Show();
             _panel.Activate();
             _panel.PlayEntranceAnimation();
+            // SPEC §4.4: opening the panel pulls the full state so it never shows stale
+            // data (e.g. a bud that went back into the case since the last refresh).
+            _ = _connection.RefreshNowAsync();
         }
     }
 

@@ -15,21 +15,30 @@ namespace SonyCtrl;
 ///   - 30s poll while Disconnected (fallback for missed WM_DEVICECHANGE; SPEC §7)
 /// Behaviour:
 ///   - Backoff retry 1s -> 5s -> 30s cap while Reconnecting (SPEC §4.3)
-///   - Full state pull after connect; 2-minute fallback refresh timer (SPEC §4.4)
-///   - Command guard: retry once, then mark Unresponsive; never guess-resend (SPEC §4.5)
+///   - Full state pull after connect and on panel open; 15s fallback refresh timer (SPEC §4.4)
+///   - All client commands serialized (protocol allows one in flight); guard retries once,
+///     then marks Unresponsive; never guess-resend (SPEC §4.5)
 /// </summary>
 public sealed class ConnectionManager : IDisposable
 {
     private static readonly int[] BackoffMs = { 1_000, 5_000, 30_000 };
     private const int PollDisconnectedMs = 30_000;
-    private const int FallbackRefreshMs = 120_000;
+    // Fallback state refresh while connected. The device pushes NTFY for most changes but
+    // NOT for "a bud went back into the case" (no such notification exists), so absence is
+    // only discoverable by polling; 15s keeps that lag tolerable. Commands are serialized
+    // (see _commandGate), so this cadence cannot collide with user actions.
+    private const int FallbackRefreshMs = 15_000;
 
     public enum State { Disconnected, Connecting, Connected, Reconnecting }
 
     private readonly Dispatcher _dispatcher;
     private readonly DeviceWatcher _watcher;
     private readonly DispatcherTimer _pollTimer;   // 30s: fallback check when disconnected
-    private readonly DispatcherTimer _refreshTimer; // 2min: fallback state refresh when connected
+    private readonly DispatcherTimer _refreshTimer; // 15s: fallback state refresh when connected
+
+    // The protocol allows one command in flight (MdrConnection throws otherwise); serialize
+    // every client operation — timer refresh, panel-open pull and user commands alike.
+    private readonly SemaphoreSlim _commandGate = new(1, 1);
 
     private MdrClient? _client;
     private State _state = State.Disconnected;
@@ -286,25 +295,35 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     /// Run an MdrClient operation with the command guard: one retry, then mark unresponsive.
     /// Runs on a background thread (SendCommand blocks with spin-wait); marshals nothing itself.
+    /// Serialized through _commandGate: the protocol carries one command at a time, and an
+    /// "already in flight" throw would otherwise be misread as a device failure.
     /// </summary>
     private async Task<T?> GuardedAsync<T>(Func<MdrClient, T> op) where T : class
     {
         if (_client is null) return null;
 
         T? result = null;
-        for (int attempt = 0; attempt < 2; attempt++)
+        await _commandGate.WaitAsync();
+        try
         {
-            var client = _client;
-            if (client is null || !client.IsConnected) break;
-            try
+            for (int attempt = 0; attempt < 2; attempt++)
             {
-                result = await Task.Run(() => op(client));
-                break;
+                var client = _client;
+                if (client is null || !client.IsConnected) break;
+                try
+                {
+                    result = await Task.Run(() => op(client));
+                    break;
+                }
+                catch (Exception)
+                {
+                    result = null;
+                }
             }
-            catch (Exception)
-            {
-                result = null;
-            }
+        }
+        finally
+        {
+            _commandGate.Release();
         }
 
         bool unresponsive = result is null;
@@ -315,6 +334,14 @@ public sealed class ConnectionManager : IDisposable
         }
         return result;
     }
+
+    /// <summary>
+    /// Full state pull for UI-driven moments (panel opened). Serialized with everything
+    /// else through the command gate; a queued pull waits its turn rather than being
+    /// dropped, so opening the panel always ends on fresh data.
+    /// </summary>
+    public Task RefreshNowAsync() =>
+        ConnState == State.Connected ? RefreshStateAsync() : Task.CompletedTask;
 
     /// <summary>
     /// UI command: switch ANC to one of the three modes (level remembered for Ambient).
