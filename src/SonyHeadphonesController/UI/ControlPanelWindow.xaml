@@ -197,6 +197,11 @@
         </Border.Effect>
         <StackPanel>
 
+            <!-- Product image (official Sound Connect asset, background removed) -->
+            <Image Source="Assets/xm5_black.png" Height="88" Stretch="Uniform"
+                   HorizontalAlignment="Center" Margin="0,0,0,10"
+                   RenderOptions.BitmapScalingMode="HighQuality"/>
+
             <!-- Header: device name + connection state -->
             <Grid>
                 <Grid.ColumnDefinitions>
