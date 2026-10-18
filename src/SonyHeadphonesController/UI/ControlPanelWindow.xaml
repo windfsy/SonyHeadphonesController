@@ -18,17 +18,24 @@
              RenderTransform is rebuilt per Show because Setter-created values are frozen. -->
         <Style x:Key="FlyoutCard" TargetType="Border"/>
 
-        <!-- ANC three-state buttons; Tag=true marks the active mode, smooth hover/press transitions -->
+        <!-- ANC three-state buttons; Tag=true marks the active mode, smooth hover/press transitions.
+             Background comes from TemplateBinding so the active-state DataTrigger (blue) can take effect;
+             hover/press darken via a black shade overlay that works on both gray and blue states. -->
         <Style x:Key="AncButton" TargetType="Button">
             <Setter Property="Padding" Value="0,8"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Background" Value="#EDEDED"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bd" CornerRadius="6" Padding="{TemplateBinding Padding}"
-                                Background="#EDEDED">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Grid>
+                            <Border x:Name="Bd" CornerRadius="6"
+                                    Background="{TemplateBinding Background}"/>
+                            <Border x:Name="Shade" CornerRadius="6" Background="Black"
+                                    Opacity="0" IsHitTestVisible="False"/>
+                            <ContentPresenter Margin="{TemplateBinding Padding}"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             <VisualStateManager.VisualStateGroups>
                                 <VisualStateGroup Name="CommonStates">
                                     <VisualStateGroup.Transitions>
@@ -41,22 +48,21 @@
                                     <VisualState Name="Normal"/>
                                     <VisualState Name="MouseOver">
                                         <Storyboard>
-                                            <ColorAnimation Storyboard.TargetName="Bd"
-                                                            Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
-                                                            To="#DCDCDC" Duration="0:0:0.08"/>
+                                            <DoubleAnimation Storyboard.TargetName="Shade"
+                                                             Storyboard.TargetProperty="Opacity"
+                                                             To="0.08" Duration="0:0:0.08"/>
                                         </Storyboard>
                                     </VisualState>
                                     <VisualState Name="Pressed">
                                         <Storyboard>
-                                            <ColorAnimation Storyboard.TargetName="Bd"
-                                                            Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
-                                                            To="#C8C8C8" Duration="0:0:0.04"/>
+                                            <DoubleAnimation Storyboard.TargetName="Shade"
+                                                             Storyboard.TargetProperty="Opacity"
+                                                             To="0.16" Duration="0:0:0.04"/>
                                         </Storyboard>
                                     </VisualState>
                                 </VisualStateGroup>
                             </VisualStateManager.VisualStateGroups>
-                        </Border>
-
+                        </Grid>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
@@ -149,7 +155,7 @@
                         </Style>
                     </Button.Resources>
                 </Button>
-                <Button Content="环境声" Margin="0,0,6,0"
+                <Button Content="通透" Margin="0,0,6,0"
                         Command="{Binding SetAncCommand}" CommandParameter="AmbientSound">
                     <Button.Resources>
                         <Style TargetType="Button" BasedOn="{StaticResource AncButton}">
@@ -188,7 +194,7 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="环境声等级" FontSize="11" Foreground="#666"/>
+                    <TextBlock Grid.Column="0" Text="通透等级" FontSize="11" Foreground="#666"/>
                     <TextBlock Grid.Column="1" Text="{Binding AmbientLevelText}" FontSize="11" Foreground="#666"/>
                 </Grid>
                 <Slider Grid.Row="1" x:Name="AmbientSlider" Minimum="0" Maximum="20"
