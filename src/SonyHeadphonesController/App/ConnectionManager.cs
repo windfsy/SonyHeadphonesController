@@ -109,6 +109,10 @@ public sealed class ConnectionManager : IDisposable
         {
             if (ConnState == State.Connected)
                 HandleLinkLoss("设备已断开");
+            else if (ConnState is State.Connecting or State.Reconnecting)
+                // The OS link is gone; stop chasing it instead of spinning in the
+                // backoff loop (which previously left the UI stuck on 重连中 forever).
+                ConnState = State.Disconnected;
         });
     }
 
@@ -116,18 +120,32 @@ public sealed class ConnectionManager : IDisposable
     {
         // On startup the earbuds may already be connected (audio channel up):
         // poll the paired-device list once and connect if present.
-        var devices = await Task.Run(() => Transport.BluetoothDeviceEnumerator.EnumeratePairedDevices());
-        var target = devices.FirstOrDefault(d => d.Address == Target);
-        Log($"initial check: target present={target != null}, connected={target?.Connected.ToString() ?? "n/a"}");
-
-        if (target?.Connected == true)
+        if (await TargetConnectedOnPcAsync())
         {
+            Log("initial check: target connected on PC");
             await _dispatcher.InvokeAsync(() =>
             {
                 if (ConnState == State.Disconnected)
                     _ = ConnectAsync();
             });
         }
+        else
+        {
+            Log("initial check: target not connected on PC");
+        }
+    }
+
+    /// <summary>
+    /// True when the Windows paired-device table reports the target as connected, i.e. the
+    /// OS already holds a link (audio channel up). Local table lookup only — no radio
+    /// activity, so it can never disturb a link the earbuds have with another host.
+    /// </summary>
+    private static async Task<bool> TargetConnectedOnPcAsync()
+    {
+        ulong target = App.Config.TargetAddress ?? 0;
+        if (target == 0) return false;
+        return await Task.Run(() => Transport.BluetoothDeviceEnumerator.EnumeratePairedDevices()
+            .Any(d => d.Address == target && d.Connected));
     }
 
     private void PollFallback()
@@ -138,9 +156,7 @@ public sealed class ConnectionManager : IDisposable
         {
             _ = Task.Run(async () =>
             {
-                var devices = Transport.BluetoothDeviceEnumerator.EnumeratePairedDevices();
-                var target = devices.FirstOrDefault(d => d.Address == Target);
-                bool present = target?.Connected == true;
+                bool present = await TargetConnectedOnPcAsync();
                 Log($"poll: target connected={present}");
                 if (present)
                 {
@@ -159,6 +175,17 @@ public sealed class ConnectionManager : IDisposable
     private async Task ConnectAsync()
     {
         if (ConnState is State.Connecting or State.Connected) return;
+
+        // Only open the control channel while Windows already holds a link to the earbuds
+        // (SPEC §4.3: the audio channel being up is the trigger). An RFCOMM connect to a
+        // device the OS reports as absent would page it over the air and could pull it
+        // away from the host it is currently with (e.g. the user's phone).
+        if (!await TargetConnectedOnPcAsync())
+        {
+            Log("connect skipped: OS reports target not connected");
+            if (ConnState != State.Disconnected) ConnState = State.Disconnected;
+            return;
+        }
 
         Log($"connect begin (state was {ConnState})");
         ConnState = State.Connecting;
