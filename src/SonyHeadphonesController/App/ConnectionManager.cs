@@ -177,6 +177,7 @@ public sealed class ConnectionManager : IDisposable
         });
         client.OnAncNotification += s => _dispatcher.BeginInvoke(() =>
         {
+            Log($"ANC NTFY: {s}");
             if (s.Mode == AncMode.AmbientSound)
                 _lastKnownAmbientLevel = s.AmbientLevel;
             Anc = s;
@@ -262,6 +263,7 @@ public sealed class ConnectionManager : IDisposable
         var battery = await GuardedAsync(c => c.GetBattery());
         if (battery is not null)
         {
+            Log($"battery GET: {battery}");
             MergeBattery(battery);
             BatteryChanged?.Invoke(Battery!);
         }
@@ -269,6 +271,7 @@ public sealed class ConnectionManager : IDisposable
         var anc = await GuardedAsync(c => c.GetAncMode());
         if (anc is not null)
         {
+            Log($"ANC GET: {anc}");
             Anc = anc;
             AncChanged?.Invoke(anc);
         }
@@ -308,12 +311,19 @@ public sealed class ConnectionManager : IDisposable
         if (unresponsive != IsUnresponsive)
         {
             IsUnresponsive = unresponsive;
-            _dispatcher.BeginInvoke(() => UnresponsiveChanged?.Invoke());
+            _ = _dispatcher.BeginInvoke(() => UnresponsiveChanged?.Invoke());
         }
         return result;
     }
 
-    /// <summary>UI command: switch ANC to one of the three modes (level remembered for Ambient).</summary>
+    /// <summary>
+    /// UI command: switch ANC to one of the three modes (level remembered for Ambient).
+    /// The device confirms via NTFY_PARAM, which updates Anc through OnAncNotification —
+    /// deliberately NO GET read-back here (matches Sound Connect's behaviour in an HCI
+    /// capture: SET → NTFY only). An immediate GET can land mid-transition, and while the
+    /// buds are unworn the device auto-pauses NC and GET reports OFF — reading back would
+    /// overwrite the correct NTFY state and make the UI snap back to "关闭".
+    /// </summary>
     public async Task SetAncModeAsync(AncMode mode)
     {
         byte level;
@@ -324,8 +334,7 @@ public sealed class ConnectionManager : IDisposable
         else
             level = (byte)0;
 
-        await GuardedAsync(c => { c.SetAncMode(mode, level); return (object)true; });
-        await RefreshStateAsync();
+        await GuardedAsync(c => { Log($"ANC SET -> {mode} level={level}"); c.SetAncMode(mode, level); return (object)true; });
     }
 
     /// <summary>UI command: adjust ambient level (only meaningful in Ambient mode).</summary>
@@ -333,23 +342,32 @@ public sealed class ConnectionManager : IDisposable
     {
         if (level > 20) level = 20;
         _lastKnownAmbientLevel = level;
-        await GuardedAsync(c => { c.SetAncMode(AncMode.AmbientSound, level); return (object)true; });
-        await RefreshStateAsync();
+        await GuardedAsync(c => { Log($"ANC SET level -> {level}"); c.SetAncMode(AncMode.AmbientSound, level); return (object)true; });
     }
 
     /// <summary>Last ambient level seen from device or set by user; null = unknown (use 10).</summary>
     private byte? _lastKnownAmbientLevel;
 
-    // Battery NTFY carries only the slot that changed; merge into the full snapshot.
+    // Battery messages arrive per slot group (L/R vs cradle). Overwrite only the groups
+    // the message carried — including its -1 (absent bud) readings — so a bud going into
+    // the case flips to "--" instead of keeping its last percentage forever.
     private void MergeBattery(BatteryStatus incoming)
     {
         var current = Battery ?? new BatteryStatus();
-        if (incoming.LeftPercent >= 0) current.LeftPercent = incoming.LeftPercent;
-        if (incoming.RightPercent >= 0) current.RightPercent = incoming.RightPercent;
-        if (incoming.CasePercent >= 0) current.CasePercent = incoming.CasePercent;
-        current.LeftCharging = incoming.LeftCharging;
-        current.RightCharging = incoming.RightCharging;
-        current.CaseCharging = incoming.CaseCharging;
+        if (incoming.CarriesLeftRight)
+        {
+            current.LeftPercent = incoming.LeftPercent;
+            current.LeftCharging = incoming.LeftCharging;
+            current.RightPercent = incoming.RightPercent;
+            current.RightCharging = incoming.RightCharging;
+            current.CarriesLeftRight = true;
+        }
+        if (incoming.CarriesCase)
+        {
+            current.CasePercent = incoming.CasePercent;
+            current.CaseCharging = incoming.CaseCharging;
+            current.CarriesCase = true;
+        }
         Battery = current;
     }
 

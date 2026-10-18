@@ -49,6 +49,15 @@ public sealed class MdrClient : IDisposable
     }
 
     /// <summary>
+    /// Buds only: the device reports 0% (charging=NotCharging) for a bud that is absent —
+    /// in the case or powered off; the protocol has no 0xFF sentinel (verified against a
+    /// Sound Connect HCI capture: the in-case bud reads 0 there too). A live bud never
+    /// reports 0% while discharging (it shuts down first), so normalize to -1 (unknown).
+    /// </summary>
+    private static int NormalizeBudPercent(byte percent, byte charging) =>
+        percent == 0 && charging == BatteryChargingStatus.NotCharging ? -1 : percent;
+
+    /// <summary>
     /// Query left/right/charging-case battery in one call. Issues two GET_STATUS commands
     /// (one for L/R, one for cradle) and merges the result.
     /// </summary>
@@ -66,10 +75,11 @@ public sealed class MdrClient : IDisposable
         if (lr.Length >= 6)
         {
             // lr[0]=0x23, lr[1]=0x01, lr[2]=L%, lr[3]=L charging, lr[4]=R%, lr[5]=R charging
-            status.LeftPercent = lr[2];
+            status.LeftPercent = NormalizeBudPercent(lr[2], lr[3]);
             status.LeftCharging = lr[3];
-            status.RightPercent = lr[4];
+            status.RightPercent = NormalizeBudPercent(lr[4], lr[5]);
             status.RightCharging = lr[5];
+            status.CarriesLeftRight = true;
         }
 
         // Charging case: payload = 22 02; RET = 23 02 <case> <case_chg>
@@ -84,6 +94,7 @@ public sealed class MdrClient : IDisposable
             {
                 status.CasePercent = cradle[2];
                 status.CaseCharging = cradle[3];
+                status.CarriesCase = true;
             }
         }
         catch (TimeoutException)
@@ -97,8 +108,10 @@ public sealed class MdrClient : IDisposable
 
     /// <summary>
     /// Query current ANC/ambient sound state. Issues NCASM_GET_PARAM with InquiredType=0x17
-    /// and parses the 8-byte RET_PARAM: 67 17 01 <on/off> <NC:0/ASM:1> <voicePassthrough> <level>.
-    /// Layout matches mos9527/SonyHeadphonesClient serializeNcAndAsmSettingV2 (verified against XM5).
+    /// and parses the 7-byte RET_PARAM: 67 17 01 &lt;on/off&gt; &lt;NC:0/ASM:1&gt; &lt;voicePassthrough&gt; &lt;level&gt;.
+    /// Note: only trustworthy while the buds are worn — unworn, the device auto-pauses NC
+    /// and GET reports OFF (see PROTOCOL_NOTES §3.3). Callers must not use a GET read-back
+    /// to override state confirmed by NTFY.
     /// </summary>
     public AncState GetAncMode()
     {
@@ -189,14 +202,16 @@ public sealed class MdrClient : IDisposable
             switch (type)
             {
                 case PowerInquiredType.LEFT_RIGHT_BATTERY when msg.Payload.Length >= 6:
-                    b.LeftPercent = msg.Payload[2];
+                    b.LeftPercent = NormalizeBudPercent(msg.Payload[2], msg.Payload[3]);
                     b.LeftCharging = msg.Payload[3];
-                    b.RightPercent = msg.Payload[4];
+                    b.RightPercent = NormalizeBudPercent(msg.Payload[4], msg.Payload[5]);
                     b.RightCharging = msg.Payload[5];
+                    b.CarriesLeftRight = true;
                     break;
                 case PowerInquiredType.CRADLE_BATTERY when msg.Payload.Length >= 4:
                     b.CasePercent = msg.Payload[2];
                     b.CaseCharging = msg.Payload[3];
+                    b.CarriesCase = true;
                     break;
             }
             OnBatteryNotification?.Invoke(b);
@@ -256,6 +271,11 @@ public sealed class BatteryStatus
     public byte RightCharging;
     public int CasePercent = -1;
     public byte CaseCharging;
+
+    // Which slot groups this message carried. RET/NTFY arrive per group (L/R vs cradle),
+    // so the merge must only overwrite groups the message actually reported.
+    public bool CarriesLeftRight;
+    public bool CarriesCase;
 
     public bool HasLeft => LeftPercent >= 0;
     public bool HasRight => RightPercent >= 0;

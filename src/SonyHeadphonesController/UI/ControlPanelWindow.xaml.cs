@@ -16,22 +16,21 @@ public partial class ControlPanelWindow : Window
     /// <summary>Anchor the flyout above the taskbar, right-aligned (near the tray corner).</summary>
     public void PositionNearTray()
     {
-        // ActualWidth/Height are 0 before first layout; measure against the work area
-        // so the very first Show lands on the right edge instead of off-screen.
+        // Before first Show, Window.Measure returns DesiredSize (0,0) — computing Left/Top
+        // from it pushes the window off the bottom-right corner. The window Width is fixed
+        // in XAML; for the height, measure the Card element directly (its DesiredSize
+        // includes its Margin, so it equals the window height once laid out).
         var workArea = SystemParameters.WorkArea;
-        Size size = ActualWidth > 0 && ActualHeight > 0
-            ? new Size(ActualWidth, ActualHeight)
-            : MeasureContentSize(workArea);
+        double width = Width;
+        double height = ActualHeight;
+        if (height <= 0)
+        {
+            Card.Measure(new Size(width, workArea.Height));
+            height = Card.DesiredSize.Height;
+        }
 
-        Left = workArea.Right - size.Width - 12;
-        Top = workArea.Bottom - size.Height - 8;
-    }
-
-    private Size MeasureContentSize(Rect workArea)
-    {
-        // Give the content a chance to lay out within the available space.
-        Measure(new Size(workArea.Width, workArea.Height));
-        return DesiredSize;
+        Left = workArea.Right - width - 12;
+        Top = workArea.Bottom - height - 8;
     }
 
     /// <summary>Call on every show: fade + slight scale-in. Loaded only fires once.</summary>

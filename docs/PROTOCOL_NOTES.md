@@ -54,11 +54,20 @@ SDP 服务 UUID（`lm0/i.java`，v2 优先）：
 | GET | `22 00` | 单体电量 |
 | GET | `22 01` | 左右耳电量 |
 | GET | `22 02` | 充电盒电量 |
+| GET | `22 05` | 佩戴检测（AUTO_POWER_OFF_WEARING_DETECTION）：RET `23 05 <worn>`，0=未佩戴 |
+| GET | `22 09` | 左右耳电量+阈值（LR_BATTERY_WITH_THRESHOLD）：RET `23 09 <L> <chgL> <R> <chgR> <thL> <thR>`（Sound Connect 实际用的查询） |
 | RET | `23 <type> <L:1> <chgL:1> <R:1> <chgR:1>` | 左右耳：level 0-100 + BatteryChargingStatus（0=未充电 1=充电中 2=未知 3=已充满） |
 | RET | `23 00 <lvl> <chg>` | 单体 |
 | NTFY | `25 ...` | 电量变化通知（0x25=POWER_NTFY_STATUS） |
 
 命令码：`POWER_GET_STATUS=0x22`，`POWER_RET_STATUS=0x23`，`POWER_NTFY_STATUS=0x25`（`Command.java`）。
+
+**缺失耳机报 0%，协议没有"不存在"哨兵值**（2026-10-18 真机 + Sound Connect HCI 抓包双重确认）：
+单耳使用时，在盒/关机的那只耳机在 `22 01` 和 `22 09` 的回复里都是 `00`（0%、未充电），
+Sound Connect 收到的也是 0（抓包见 `23 09 64 00 00 00 64 64`：左 100%、右 0%）。
+官方校验（`yn0/r0.java`）只把充电状态 `FF`(OUT_OF_RANGE) 或电量 >100 判为非法，0% 是合法读数。
+因此区分"缺失耳"和"真 0%"只能在应用层归一化：**0% 且未充电 ⇒ 视为不在位（-1）**。
+在用的活耳永远不会放电到 0%（到临界值先自动关机），该规则安全；充电中的 0% 不归一化。
 
 ### 3.3 ANC / 通透（table1，`sn0/`）
 
@@ -93,6 +102,23 @@ NTFY: 69 17 01 <开关> <NC:0/ASM:1> <reserved=00> <level>
 - 关闭 RET: `67 17 01 00 00 00 0A`（level 字段保持上次值，不重置）
 
 **关键提醒**：mos9527 源码注释里说 SET 是 8 字节带 "voice passthrough" 字段，但真机 RET 实际是 7 字节（含命令字节）。SET 也按 7 字节发送即可正确生效——8 字节变体的多余字段会被耳机忽略或截断，但不会破坏功能。这是社区注释与真机不一致的典型情况，**以真机抓包为准**。
+
+**InquiredType 命名勘误**（2026-10-18，APK `NcAsmInquiredType.java` 枚举为十进制字节码）：
+0x17(23) 的官方枚举名是 `MODE_NC_ASM_DUAL_NC_MODE_SWITCH_AND_ASM_SEAMLESS`（双耳形态），
+不是社区注释里说的 `NC_MODE_SWITCH_AND_ASM_ON_OFF`（那是 0x12=18，实测 GET 超时不响应）。
+实测 XM5 响应 GET_PARAM 的类型只有 0x17 和 0x18，两者回复布局一致。
+
+**佩戴检测与 NC 自动暂停**（2026-10-18 真机 + HCI 抓包确认）：
+- 耳机未佩戴（`22 05` 回 `23 05 00`）时，SET 降噪后设备先推 NTFY(ON)，数秒内自动再推一条
+  `69 17 00 00 ...`（UNDER_CHANGING+OFF）并暂停降噪；此后 GET_PARAM 的开关位恒为 00，20s 不收敛。
+- 佩戴时 GET_PARAM 回复正常（开关位=01）。
+- **Sound Connect 在 SET 后从不 GET 回读**（HCI 抓包完整序列：SET → NTFY，仅此而已），
+  状态显示完全信任 NTFY。我们最初的"SET 后立即 GET 回读"在未佩戴场景下会把 NTFY 刚确认的
+  ON 覆盖成 OFF，UI 表现为"点击降噪/通透后立即跳回关闭"。修复：去掉 SET 后的 GET，改为信任 NTFY。
+
+**SET OFF 时 NTFY 会规范化字段**（HCI 抓包样本）：发 `68 17 01 00 01 00 0A`（Sound Connect
+切关闭时 [4] 保留当前模式），设备回 `69 17 01 00 00 00 0A`——[4] 被重置为 00。即关闭状态下
+[4] 无意义，解析时只看 [3]。
 
 **重要发现：等级字段位置曾错位**。最初按社区注释把 level 放在 `[5]`，导致 SET 命令看似成功（ACK 收到、NTFY 推送）但 level 始终为 0——耳朵听不出通透等级变化。把 level 移到 `[6]`、`[5]` 固定为 0x00 后，等级 1/10/20 的差异立刻在耳朵上可辨。
 

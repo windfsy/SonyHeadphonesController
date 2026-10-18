@@ -59,19 +59,20 @@ internal static class BatteryChargingStatus
 }
 
 /// <summary>
-/// NCASM InquiredType byte values from NcAsmInquiredType.java.
-/// Two relevant forms:
-///   NC_MODE_SWITCH_AND_ASM_SEAMLESS (0x14) — full 7-byte layout incl. ambient volume level.
-///   NC_MODE_SWITCH_AND_ASM_ON_OFF   (0x17) — used by mos9527's SonyHeadphonesClient for XM5,
-///                                            verified against real device.
-/// We use 0x17 because it's the form tested against WF-1000XM5 by the community.
+/// NCASM InquiredType byte values from NcAsmInquiredType.java (enum bytecodes are DECIMAL
+/// literals in the APK, hence the hex mismatch). Two forms XM5 actually answers GET_PARAM on:
+///   0x17 = MODE_NC_ASM_DUAL_NC_MODE_SWITCH_AND_ASM_SEAMLESS (bytecode 23)
+///   0x18 = MODE_NC_NCSS_ASM_DUAL_NC_MODE_SWITCH_AND_ASM_SEAMLESS (bytecode 24)
+/// mos9527's community comment mislabels 0x17 as "NC_MODE_SWITCH_AND_ASM_ON_OFF" (that is
+/// actually 0x12 = 18, which XM5 does NOT answer — GET times out). 0x14 (SEAMLESS, 20) also
+/// times out. Verified against WF-1000XM5 firmware 6.x.
 /// </summary>
 internal static class NcAsmInquiredType
 {
-    public const byte NC_MODE_SWITCH_AND_ASM_SEAMLESS = 0x14;
-    public const byte NC_MODE_SWITCH_AND_ASM_ON_OFF = 0x17;
+    public const byte NC_MODE_SWITCH_AND_ASM_ON_OFF = 0x12;
+    public const byte MODE_NC_ASM_DUAL_NC_MODE_SWITCH_AND_ASM_SEAMLESS = 0x17;
     // The form actually used by SetAncMode/GetAncMode:
-    public const byte Used = NC_MODE_SWITCH_AND_ASM_ON_OFF;
+    public const byte Used = MODE_NC_ASM_DUAL_NC_MODE_SWITCH_AND_ASM_SEAMLESS;
 }
 
 internal static class NcAsmOnOffValue
