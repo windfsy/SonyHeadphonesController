@@ -1,16 +1,34 @@
 using System.Windows;
-using System.Windows.Controls.Primitives;
 using System.Windows.Media.Animation;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace SonyCtrl.UI;
 
 public partial class ControlPanelWindow : Window
 {
+    private readonly DispatcherTimer _ambientCommitTimer;
+
     public ControlPanelWindow(MainViewModel vm)
     {
         InitializeComponent();
         DataContext = vm;
+
+        // Bar-style slider has no visible thumb, so there is no DragCompleted to commit on.
+        // Debounce ValueChanged instead: send once the value settles after a drag/click.
+        _ambientCommitTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
+        _ambientCommitTimer.Tick += (_, _) =>
+        {
+            _ambientCommitTimer.Stop();
+            (DataContext as MainViewModel)?.CommitAmbientLevel();
+        };
+    }
+
+    private void OnAmbientSliderChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        // Restart the debounce window on every value change (drag tick or click).
+        _ambientCommitTimer.Stop();
+        _ambientCommitTimer.Start();
     }
 
     /// <summary>Anchor the flyout above the taskbar, right-aligned (near the tray corner).</summary>
@@ -60,12 +78,5 @@ public partial class ControlPanelWindow : Window
         base.Hide();
         // Release Topmost so it doesn't linger over other windows while hidden.
         Topmost = false;
-    }
-
-    private void OnAmbientDragCompleted(object sender, DragCompletedEventArgs e)
-    {
-        // Commit the slider value only when the user releases the thumb: avoids flooding
-        // the device with per-tick SET commands during the drag.
-        (DataContext as MainViewModel)?.CommitAmbientLevel();
     }
 }

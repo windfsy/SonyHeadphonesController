@@ -14,6 +14,53 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
 
+        <!-- Text styles; each grays out when the enclosing disconnected section disables it -->
+        <Style x:Key="LabelText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#666"/>
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="#C4C4C4"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="MutedText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="#888"/>
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="#C4C4C4"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="SmallText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="#666"/>
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="#C4C4C4"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="ChargingText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="Foreground" Value="#666"/>
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="#C4C4C4"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="ValueText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="#C4C4C4"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
         <!-- Entrance animation runs in code-behind on every Show (Loaded only fires once).
              RenderTransform is rebuilt per Show because Setter-created values are frozen. -->
         <Style x:Key="FlyoutCard" TargetType="Border"/>
@@ -66,6 +113,73 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#F0F0F0"/>
+                    <Setter Property="Foreground" Value="#C4C4C4"/>
+                    <Setter Property="Cursor" Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Ambient level slider: modern bar look — rounded 10px track, blue rounded fill,
+             no grab knob (the thumb is an invisible drag hit-area with an arrow cursor).
+             Value commit moved to a ValueChanged debounce in code-behind (no DragCompleted
+             without a visible thumb). -->
+        <Style x:Key="BarSlider" TargetType="Slider">
+            <Setter Property="Height" Value="20"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Slider">
+                        <Grid>
+                            <Border x:Name="TrackBg" Height="10" CornerRadius="5"
+                                    Background="#E4E4E4" VerticalAlignment="Center"/>
+                            <Track x:Name="PART_Track" VerticalAlignment="Center">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Focusable="False">
+                                        <RepeatButton.Template>
+                                            <ControlTemplate TargetType="RepeatButton">
+                                                <Border x:Name="Fill" Height="10" CornerRadius="5"
+                                                        Background="#0078D4" VerticalAlignment="Center"/>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsEnabled" Value="False">
+                                                        <Setter TargetName="Fill" Property="Background" Value="#C9C9C9"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.DecreaseRepeatButton>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Focusable="False">
+                                        <RepeatButton.Template>
+                                            <ControlTemplate TargetType="RepeatButton">
+                                                <Border Background="Transparent"/>
+                                            </ControlTemplate>
+                                        </RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.IncreaseRepeatButton>
+                                <Track.Thumb>
+                                    <!-- Invisible drag hit-area; its height sizes the Track,
+                                         so it must match the slider height. No grab knob. -->
+                                    <Thumb Cursor="Arrow">
+                                        <Thumb.Template>
+                                            <ControlTemplate TargetType="Thumb">
+                                                <Border Width="14" Height="20" Background="Transparent"/>
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="TrackBg" Property="Background" Value="#EFEFEF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
     </Window.Resources>
@@ -101,108 +215,123 @@
                 <TextBlock Text="耳机无响应" Foreground="#D32F2F" FontSize="12" HorizontalAlignment="Center"/>
             </Border>
 
-            <Separator Margin="0,10"/>
+            <!-- Device state section: grayed out and non-interactive while disconnected -->
+            <Grid IsEnabled="{Binding IsConnected}" Margin="0,10,0,0">
+                <StackPanel>
 
-            <!-- Battery -->
-            <TextBlock Text="电量" FontSize="12" Foreground="#666" Margin="0,0,0,6"/>
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0" HorizontalAlignment="Center">
-                    <TextBlock Text="左耳" FontSize="11" Foreground="#888" HorizontalAlignment="Center"/>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <TextBlock Text="{Binding BatteryLeftText}" FontSize="16" FontWeight="Bold"/>
-                        <TextBlock Text="充电中" FontSize="10" Foreground="#666" VerticalAlignment="Bottom" Margin="3,0,0,3"
-                                   Visibility="{Binding LeftChargingVisible}"/>
-                    </StackPanel>
-                </StackPanel>
-                <StackPanel Grid.Column="1" HorizontalAlignment="Center">
-                    <TextBlock Text="右耳" FontSize="11" Foreground="#888" HorizontalAlignment="Center"/>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <TextBlock Text="{Binding BatteryRightText}" FontSize="16" FontWeight="Bold"/>
-                        <TextBlock Text="充电中" FontSize="10" Foreground="#666" VerticalAlignment="Bottom" Margin="3,0,0,3"
-                                   Visibility="{Binding RightChargingVisible}"/>
-                    </StackPanel>
-                </StackPanel>
-                <StackPanel Grid.Column="2" HorizontalAlignment="Center">
-                    <TextBlock Text="充电盒" FontSize="11" Foreground="#888" HorizontalAlignment="Center"/>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <TextBlock Text="{Binding BatteryCaseText}" FontSize="16" FontWeight="Bold"/>
-                        <TextBlock Text="充电中" FontSize="10" Foreground="#666" VerticalAlignment="Bottom" Margin="3,0,0,3"
-                                   Visibility="{Binding CaseChargingVisible}"/>
-                    </StackPanel>
-                </StackPanel>
-            </Grid>
+                    <!-- Battery -->
+                    <TextBlock Text="电量" Style="{StaticResource LabelText}" Margin="0,0,0,6"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" HorizontalAlignment="Center">
+                            <TextBlock Text="左耳" Style="{StaticResource MutedText}" HorizontalAlignment="Center"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <TextBlock Text="{Binding BatteryLeftText}" Style="{StaticResource ValueText}"/>
+                                <TextBlock Text="充电中" Style="{StaticResource ChargingText}" VerticalAlignment="Bottom" Margin="3,0,0,3"
+                                           Visibility="{Binding LeftChargingVisible}"/>
+                            </StackPanel>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" HorizontalAlignment="Center">
+                            <TextBlock Text="右耳" Style="{StaticResource MutedText}" HorizontalAlignment="Center"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <TextBlock Text="{Binding BatteryRightText}" Style="{StaticResource ValueText}"/>
+                                <TextBlock Text="充电中" Style="{StaticResource ChargingText}" VerticalAlignment="Bottom" Margin="3,0,0,3"
+                                           Visibility="{Binding RightChargingVisible}"/>
+                            </StackPanel>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" HorizontalAlignment="Center">
+                            <TextBlock Text="充电盒" Style="{StaticResource MutedText}" HorizontalAlignment="Center"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <TextBlock Text="{Binding BatteryCaseText}" Style="{StaticResource ValueText}"/>
+                                <TextBlock Text="充电中" Style="{StaticResource ChargingText}" VerticalAlignment="Bottom" Margin="3,0,0,3"
+                                           Visibility="{Binding CaseChargingVisible}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
 
-            <Separator Margin="0,12"/>
-
-            <!-- ANC three-state: implicit per-button Style with DataTrigger for active highlight -->
-            <TextBlock Text="噪声控制" FontSize="12" Foreground="#666" Margin="0,0,0,6"/>
-            <UniformGrid Columns="3">
-                <Button Content="降噪" Margin="0,0,6,0"
-                        Command="{Binding SetAncCommand}" CommandParameter="NoiseCancelling">
-                    <Button.Resources>
-                        <Style TargetType="Button" BasedOn="{StaticResource AncButton}">
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsNoiseCancelling}" Value="True">
+                    <!-- ANC three-state: implicit per-button Style with DataTrigger for active highlight -->
+                    <TextBlock Text="噪声控制" Style="{StaticResource LabelText}" Margin="0,14,0,6"/>
+                    <UniformGrid Columns="3">
+                        <Button Content="降噪" Margin="0,0,6,0"
+                                Command="{Binding SetAncCommand}" CommandParameter="NoiseCancelling">
+                            <Button.Resources>
+                                <Style TargetType="Button" BasedOn="{StaticResource AncButton}">
+                                    <Style.Triggers>
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding IsNoiseCancelling}" Value="True"/>
+                                        <Condition Binding="{Binding IsConnected}" Value="True"/>
+                                    </MultiDataTrigger.Conditions>
                                     <Setter Property="Background" Value="#0078D4"/>
                                     <Setter Property="Foreground" Value="White"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Button.Resources>
-                </Button>
-                <Button Content="通透" Margin="0,0,6,0"
-                        Command="{Binding SetAncCommand}" CommandParameter="AmbientSound">
-                    <Button.Resources>
-                        <Style TargetType="Button" BasedOn="{StaticResource AncButton}">
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsAmbientSound}" Value="True">
+                                </MultiDataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Resources>
+                        </Button>
+                        <Button Content="通透" Margin="0,0,6,0"
+                                Command="{Binding SetAncCommand}" CommandParameter="AmbientSound">
+                            <Button.Resources>
+                                <Style TargetType="Button" BasedOn="{StaticResource AncButton}">
+                                    <Style.Triggers>
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding IsAmbientSound}" Value="True"/>
+                                        <Condition Binding="{Binding IsConnected}" Value="True"/>
+                                    </MultiDataTrigger.Conditions>
                                     <Setter Property="Background" Value="#0078D4"/>
                                     <Setter Property="Foreground" Value="White"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Button.Resources>
-                </Button>
-                <Button Content="关闭"
-                        Command="{Binding SetAncCommand}" CommandParameter="Off">
-                    <Button.Resources>
-                        <Style TargetType="Button" BasedOn="{StaticResource AncButton}">
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsAncOff}" Value="True">
+                                </MultiDataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Resources>
+                        </Button>
+                        <Button Content="关闭"
+                                Command="{Binding SetAncCommand}" CommandParameter="Off">
+                            <Button.Resources>
+                                <Style TargetType="Button" BasedOn="{StaticResource AncButton}">
+                                    <Style.Triggers>
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding IsAncOff}" Value="True"/>
+                                        <Condition Binding="{Binding IsConnected}" Value="True"/>
+                                    </MultiDataTrigger.Conditions>
                                     <Setter Property="Background" Value="#0078D4"/>
                                     <Setter Property="Foreground" Value="White"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Button.Resources>
-                </Button>
-            </UniformGrid>
+                                </MultiDataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Resources>
+                        </Button>
+                    </UniformGrid>
 
-            <!-- Ambient level slider: free-form during drag, commit on release -->
-            <Grid Margin="0,12,0,0">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-                <Grid Grid.Row="0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="通透等级" FontSize="11" Foreground="#666"/>
-                    <TextBlock Grid.Column="1" Text="{Binding AmbientLevelText}" FontSize="11" Foreground="#666"/>
-                </Grid>
-                <Slider Grid.Row="1" x:Name="AmbientSlider" Minimum="0" Maximum="20"
-                        Value="{Binding AmbientLevel}"
-                        IsEnabled="{Binding AmbientLevelEnabled}"
-                        TickFrequency="0.1" IsSnapToTickEnabled="False"
-                        Margin="0,4,0,0"
-                        Thumb.DragCompleted="OnAmbientDragCompleted"/>
+                    <!-- Ambient level slider: bar style, commit debounced in code-behind -->
+                    <Grid Margin="0,14,0,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="通透等级" Style="{StaticResource SmallText}"/>
+                            <TextBlock Grid.Column="1" Text="{Binding AmbientLevelText}" Style="{StaticResource SmallText}"/>
+                        </Grid>
+                        <Slider Grid.Row="1" x:Name="AmbientSlider" Style="{StaticResource BarSlider}"
+                                Minimum="0" Maximum="20"
+                                Value="{Binding AmbientLevel}"
+                                IsEnabled="{Binding AmbientLevelEnabled}"
+                                Margin="0,6,0,0"
+                                ValueChanged="OnAmbientSliderChanged"/>
+                    </Grid>
+
+                </StackPanel>
             </Grid>
 
         </StackPanel>
