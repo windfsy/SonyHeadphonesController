@@ -123,9 +123,10 @@
         </Style>
 
         <!-- Ambient level slider: modern bar look — rounded 10px track, blue rounded fill,
-             no grab knob (the thumb is an invisible drag hit-area with an arrow cursor).
-             Value commit moved to a ValueChanged debounce in code-behind (no DragCompleted
-             without a visible thumb). -->
+             no grab knob. The fill is an overlay sized by value fraction (a Track-based fill
+             always stops one thumb-width short of the end), and mouse input is handled on
+             the panel itself: press anywhere jumps to that position, drag scrubs. Value
+             commit stays in the ValueChanged debounce in code-behind. -->
         <Style x:Key="BarSlider" TargetType="Slider">
             <Setter Property="Height" Value="20"/>
             <Setter Property="Template">
@@ -134,47 +135,15 @@
                         <Grid>
                             <Border x:Name="TrackBg" Height="10" CornerRadius="5"
                                     Background="#E4E4E4" VerticalAlignment="Center"/>
-                            <Track x:Name="PART_Track" VerticalAlignment="Center">
-                                <Track.DecreaseRepeatButton>
-                                    <RepeatButton Focusable="False">
-                                        <RepeatButton.Template>
-                                            <ControlTemplate TargetType="RepeatButton">
-                                                <Border x:Name="Fill" Height="10" CornerRadius="5"
-                                                        Background="#0078D4" VerticalAlignment="Center"/>
-                                                <ControlTemplate.Triggers>
-                                                    <Trigger Property="IsEnabled" Value="False">
-                                                        <Setter TargetName="Fill" Property="Background" Value="#C9C9C9"/>
-                                                    </Trigger>
-                                                </ControlTemplate.Triggers>
-                                            </ControlTemplate>
-                                        </RepeatButton.Template>
-                                    </RepeatButton>
-                                </Track.DecreaseRepeatButton>
-                                <Track.IncreaseRepeatButton>
-                                    <RepeatButton Focusable="False">
-                                        <RepeatButton.Template>
-                                            <ControlTemplate TargetType="RepeatButton">
-                                                <Border Background="Transparent"/>
-                                            </ControlTemplate>
-                                        </RepeatButton.Template>
-                                    </RepeatButton>
-                                </Track.IncreaseRepeatButton>
-                                <Track.Thumb>
-                                    <!-- Invisible drag hit-area; its height sizes the Track,
-                                         so it must match the slider height. No grab knob. -->
-                                    <Thumb Cursor="Arrow">
-                                        <Thumb.Template>
-                                            <ControlTemplate TargetType="Thumb">
-                                                <Border Width="14" Height="20" Background="Transparent"/>
-                                            </ControlTemplate>
-                                        </Thumb.Template>
-                                    </Thumb>
-                                </Track.Thumb>
-                            </Track>
+                            <Border x:Name="Fill" Height="10" CornerRadius="5"
+                                    Background="#0078D4" VerticalAlignment="Center"
+                                    HorizontalAlignment="Left" Width="0"
+                                    IsHitTestVisible="False"/>
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="TrackBg" Property="Background" Value="#EFEFEF"/>
+                                <Setter TargetName="Fill" Property="Background" Value="#C9C9C9"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -333,8 +302,7 @@
                                 Minimum="0" Maximum="20"
                                 Value="{Binding AmbientLevel}"
                                 IsEnabled="{Binding AmbientLevelEnabled}"
-                                Margin="0,6,0,0"
-                                ValueChanged="OnAmbientSliderChanged"/>
+                                Margin="0,6,0,0"/>
                     </Grid>
 
                 </StackPanel>
