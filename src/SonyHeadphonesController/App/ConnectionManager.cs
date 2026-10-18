@@ -53,12 +53,18 @@ public sealed class ConnectionManager : IDisposable
     }
     public BatteryStatus? Battery { get; private set; }
     public AncState? Anc { get; private set; }
+    /// <summary>
+    /// Raw ModelColor byte code reported by the device (CONNECT_GET_DEVICE_INFO type 3),
+    /// null while unknown. Constant for a connection, so queried once after connect.
+    /// </summary>
+    public byte? DeviceColor { get; private set; }
     public bool IsUnresponsive { get; private set; }
     public string DeviceName => App.Config.TargetName ?? "未知设备";
 
     public event Action<State>? StateChanged;
     public event Action<BatteryStatus>? BatteryChanged;
     public event Action<AncState>? AncChanged;
+    public event Action<byte?>? DeviceColorChanged;
     public event Action? UnresponsiveChanged;
 
     public ConnectionManager(AppConfig config, Window host)
@@ -230,7 +236,41 @@ public sealed class ConnectionManager : IDisposable
         // Full state pull after connect (SPEC §4.4).
         await RefreshStateAsync();
 
+        // Colour never changes mid-connection, so one query after connect suffices.
+        await QueryDeviceColorAsync();
+
         _refreshTimer.Start();
+    }
+
+    /// <summary>
+    /// One-shot SERIES_AND_COLOR query. Deliberately outside GuardedAsync: a device
+    /// that never answers this optional GET must not be flagged unresponsive. Still
+    /// serialized through the command gate like every other client operation.
+    /// </summary>
+    private async Task QueryDeviceColorAsync()
+    {
+        byte? color = null;
+        await _commandGate.WaitAsync();
+        try
+        {
+            if (_client is { IsConnected: true } c)
+                color = await Task.Run(c.GetDeviceColor);
+        }
+        catch (Exception ex)
+        {
+            Log($"color GET failed: {ex.Message}");
+        }
+        finally
+        {
+            _commandGate.Release();
+        }
+
+        Log($"color GET: {(color is null ? "n/a" : $"0x{color:X2}")}");
+        if (color != DeviceColor)
+        {
+            DeviceColor = color;
+            DeviceColorChanged?.Invoke(color);
+        }
     }
 
     private void ScheduleReconnect()
@@ -282,6 +322,11 @@ public sealed class ConnectionManager : IDisposable
     {
         _client?.Dispose();
         _client = null;
+        if (DeviceColor is not null)
+        {
+            DeviceColor = null;
+            DeviceColorChanged?.Invoke(null);
+        }
     }
 
     // File diagnostics: tray app has no console; %TEMP% log is the only observable channel.

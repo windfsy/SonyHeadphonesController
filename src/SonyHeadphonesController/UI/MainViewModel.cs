@@ -26,6 +26,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         _connection.StateChanged += OnStateChanged;
         _connection.BatteryChanged += OnBatteryChanged;
         _connection.AncChanged += OnAncChanged;
+        _connection.DeviceColorChanged += OnDeviceColorChanged;
         _connection.UnresponsiveChanged += OnUnresponsiveChanged;
 
         TogglePanelCommand = new RelayCommand(_ => TogglePanel());
@@ -87,6 +88,40 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public bool IsNoiseCancelling => _connection.Anc?.Mode == AncMode.NoiseCancelling;
     public bool IsAmbientSound => _connection.Anc?.Mode == AncMode.AmbientSound;
     public bool IsAncOff => _connection.Anc is null || _connection.Anc.Mode == AncMode.Off;
+
+    /// <summary>
+    /// Official product render for the panel header, picked by the colour byte the
+    /// device reports (same encoding as the cloud model-info API's model_color_id).
+    /// Unknown/absent colour falls back to black.
+    /// </summary>
+    public ImageSource ProductImageSource => GetProductImage(_connection.DeviceColor);
+
+    private static readonly Dictionary<byte, ImageSource> ProductImageCache = new();
+
+    private static ImageSource GetProductImage(byte? color)
+    {
+        byte key = color switch
+        {
+            ModelColor.Silver => ModelColor.Silver,
+            ModelColor.Pink => ModelColor.Pink,
+            _ => ModelColor.Black,
+        };
+
+        if (!ProductImageCache.TryGetValue(key, out var source))
+        {
+            var bmp = new BitmapImage(new Uri($"pack://application:,,,/UI/Assets/xm5_{KeyName(key)}.png"));
+            bmp.Freeze();
+            ProductImageCache[key] = source = bmp;
+        }
+        return source;
+    }
+
+    private static string KeyName(byte color) => color switch
+    {
+        ModelColor.Silver => "silver",
+        ModelColor.Pink => "pink",
+        _ => "black",
+    };
 
     /// <summary>
     /// Slider value. Updates only the local echo during drag; the actual SET command is
@@ -207,6 +242,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private void OnStateChanged(ConnectionManager.State _) { RefreshAll(); }
     private void OnBatteryChanged(BatteryStatus _) { RefreshAll(); }
     private void OnAncChanged(AncState _) { _ambientEcho = null; RefreshAll(); }
+    private void OnDeviceColorChanged(byte? _) { RefreshAll(); }
     private void OnUnresponsiveChanged() { RefreshAll(); }
 
     private void RefreshAll()
@@ -218,6 +254,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                  nameof(LeftChargingVisible), nameof(RightChargingVisible), nameof(CaseChargingVisible),
                  nameof(IsNoiseCancelling), nameof(IsAmbientSound), nameof(IsAncOff),
                  nameof(AmbientLevel), nameof(AmbientLevelText), nameof(AmbientLevelEnabled),
+                 nameof(ProductImageSource),
                  nameof(TrayIconSource), nameof(TrayToolTip),
              })
         {
@@ -247,6 +284,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         _connection.StateChanged -= OnStateChanged;
         _connection.BatteryChanged -= OnBatteryChanged;
         _connection.AncChanged -= OnAncChanged;
+        _connection.DeviceColorChanged -= OnDeviceColorChanged;
         _connection.UnresponsiveChanged -= OnUnresponsiveChanged;
         _panel.Close();
     }

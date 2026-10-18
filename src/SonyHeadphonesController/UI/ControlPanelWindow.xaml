@@ -197,8 +197,9 @@
         </Border.Effect>
         <StackPanel>
 
-            <!-- Product image (official Sound Connect asset, background removed) -->
-            <Image Source="Assets/xm5_black.png" Height="88" Stretch="Uniform"
+            <!-- Product image (official Sound Connect asset, background removed);
+                 source follows the colour byte the device reports -->
+            <Image Source="{Binding ProductImageSource}" Height="88" Stretch="Uniform"
                    HorizontalAlignment="Center" Margin="0,0,0,10"
                    RenderOptions.BitmapScalingMode="HighQuality"/>
 

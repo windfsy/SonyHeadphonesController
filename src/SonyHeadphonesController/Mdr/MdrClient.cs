@@ -107,6 +107,33 @@ public sealed class MdrClient : IDisposable
     }
 
     /// <summary>
+    /// Query the device's series + colour. GET payload = 04 03 (DeviceInfoType.
+    /// SERIES_AND_COLOR_INFO); RET is exactly 4 bytes: 05 03 &lt;ModelSeries&gt;
+    /// &lt;ModelColor&gt; (in0/j.java validates bArr.length == 4, colour at index 3).
+    /// Returns the raw ModelColor byte code, or null when the device gives no valid
+    /// reply — colour is cosmetic, so a missing answer must not read as a failure.
+    /// </summary>
+    public byte? GetDeviceColor()
+    {
+        EnsureConnected();
+        try
+        {
+            byte[] ret = _conn!.SendCommand(
+                new byte[] { CommandId.CONNECT_GET_DEVICE_INFO, DeviceInfoType.SERIES_AND_COLOR_INFO },
+                CommandId.CONNECT_RET_DEVICE_INFO,
+                retSubType: DeviceInfoType.SERIES_AND_COLOR_INFO,
+                timeoutMs: 3000);
+
+            // ret[0]=0x05, ret[1]=0x03, ret[2]=series, ret[3]=colour
+            return ret.Length == 4 ? ret[3] : null;
+        }
+        catch (TimeoutException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
     /// Query current ANC/ambient sound state. Issues NCASM_GET_PARAM with InquiredType=0x17
     /// and parses the 7-byte RET_PARAM: 67 17 01 &lt;on/off&gt; &lt;NC:0/ASM:1&gt; &lt;voicePassthrough&gt; &lt;level&gt;.
     /// Note: only trustworthy while the buds are worn — unworn, the device auto-pauses NC

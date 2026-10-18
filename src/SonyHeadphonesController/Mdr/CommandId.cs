@@ -28,6 +28,31 @@ internal static class CommandId
 }
 
 /// <summary>
+/// Sub-type bytes for the CONNECT_GET_DEVICE_INFO payload[1].
+/// From DeviceInfoType.java (v2) in the APK.
+/// </summary>
+internal static class DeviceInfoType
+{
+    public const byte MODEL_NAME = 0x01;
+    public const byte FW_VERSION = 0x02;
+    public const byte SERIES_AND_COLOR_INFO = 0x03;
+    public const byte INSTRUCTION_GUIDE = 0x04;
+}
+
+/// <summary>
+/// ModelColor byte codes from ModelColor.java (only the values a WF-1000XM5 can
+/// report). Identical encoding to the cloud model-info API's model_color_id, so a
+/// RET colour byte maps straight onto a product image.
+/// </summary>
+internal static class ModelColor
+{
+    public const byte Black = 0x01;
+    public const byte Silver = 0x03;
+    public const byte Blue = 0x05;
+    public const byte Pink = 0x06;
+}
+
+/// <summary>
 /// Sub-type bytes for the POWER_GET_STATUS payload[1].
 /// From PowerInquiredType.java in the APK.
 /// </summary>

@@ -17,6 +17,8 @@
 
   <ItemGroup>
     <Resource Include="UI\Assets\xm5_black.png" />
+    <Resource Include="UI\Assets\xm5_silver.png" />
+    <Resource Include="UI\Assets\xm5_pink.png" />
   </ItemGroup>
 
 </Project>

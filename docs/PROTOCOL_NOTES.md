@@ -47,6 +47,12 @@ SDP 服务 UUID（`lm0/i.java`，v2 优先）：
 3. `CONNECT_GET_CAPABILITY_INFO` → `CONNECT_RET_CAPABILITY_INFO`（设备支持的能力表，`in0/e` + `table1/a`）
 4. `CONNECT_GET_DEVICE_INFO`（type=MODEL_NAME/SERIES_AND_COLOR/FW_VERSION/INSTRUCTION_GUIDE）→ 各 RET
 
+**SERIES_AND_COLOR 真机验证（2026-10-18，WF-1000XM5 fw 6.x）**：GET payload `04 03`（2 字节，`in0/b.java` 校验长度==2）；
+RET 固定 4 字节 `05 03 <ModelSeries> <ModelColor>`（`in0/j.java` 校验长度==4，颜色在 `[3]`）。
+ModelColor 字节码（`ModelColor.java`）：`01`=Black、`03`=Silver、`05`=Blue、`06`=Pink；
+与云端型号信息 API（GraphQL `getAllCloudModelInfos` 的 `model_color_id`）**同一套编码**，
+故设备颜色字节可直接映射官方产品图。本机实测 RET `05 03 .. 01` → 黑色。
+
 ### 3.2 电量（table1，`yn0/`）
 
 | 方向 | payload | 含义 |
