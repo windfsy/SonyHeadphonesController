@@ -22,7 +22,7 @@ jobs:
         shell: pwsh
         run: |
           $tag = "${env:GITHUB_REF_NAME}" -replace '^v', ''
-          $changelog = (Select-String -Path CHANGELOG.md -Pattern '^## \[(\d+\.\d+\.\d+)\]' | Select-Object -First 1).Matches[0].Groups[1].Value
+          $changelog = (Select-String -Path CHANGELOG.md -Pattern '^## \[(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)\]' | Select-Object -First 1).Matches[0].Groups[1].Value
           if ($tag -ne $changelog) {
             Write-Error "tag v$tag 与 CHANGELOG 最新版本 $changelog 不一致，请先更新 CHANGELOG.md"
             exit 1
