@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      # CONTRIBUTING.md 要求零警告：编译警告一律视为错误
+      - name: Build
+        run: dotnet build SonyHeadphonesController.sln -c Release -p:TreatWarningsAsErrors=true
+
+      - name: Publish
+        run: dotnet publish src/SonyHeadphonesController -c Release -o publish
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sony-headphones-controller
+          path: publish/
+          retention-days: 7
