@@ -183,10 +183,13 @@
 
     </Window.Resources>
 
-    <!-- Panel card: drop shadow + rounded corners for depth layering -->
+    <!-- Panel card: drop shadow + rounded corners for depth layering.
+         Background is a frosted-glass snapshot laid in by code-behind (screen region
+         behind the card, gaussian-blurred + adaptively lifted toward white so the gray
+         label text keeps contrast); this fallback shows until capture succeeds. -->
     <Border x:Name="Card" Style="{StaticResource FlyoutCard}"
-            Background="#F2FFFFFF"
-            CornerRadius="10"
+            Background="#E6FFFFFF"
+            CornerRadius="16"
             BorderBrush="#1A000000"
             BorderThickness="1"
             Padding="18"
@@ -199,7 +202,7 @@
             <!-- Product image (official Sound Connect asset, background removed);
                  source follows the colour byte the device reports -->
             <Image Source="{Binding ProductImageSource}" Height="88" Stretch="Uniform"
-                   HorizontalAlignment="Center" Margin="0,0,0,10"
+                   HorizontalAlignment="Center" Margin="0,16,0,18"
                    RenderOptions.BitmapScalingMode="HighQuality"/>
 
             <!-- Header: device name + connection state -->

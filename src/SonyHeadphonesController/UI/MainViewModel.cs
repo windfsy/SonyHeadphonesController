@@ -51,6 +51,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         else
         {
             _panel.PositionNearTray();
+            // Lay the frosted-glass backdrop before Show so the shot never contains the
+            // panel itself; PositionNearTray must run first so the capture rect is final.
+            _panel.CaptureBackdrop();
             _panel.Show();
             _panel.Activate();
             _panel.PlayEntranceAnimation();

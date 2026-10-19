@@ -1,7 +1,9 @@
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Imaging;
 using System.Windows.Media;
 using System.Windows.Threading;
 
@@ -127,6 +129,191 @@ public partial class ControlPanelWindow : Window
 
         Left = workArea.Right - width - 12;
         Top = workArea.Bottom - height - 8;
+    }
+
+    /// <summary>
+    /// Frosted-glass backdrop: capture the screen region behind the card (before Show, so
+    /// the panel itself is never in the shot), blur it separably in C#, lift it adaptively
+    /// toward white, and lay it in as the card's Background. Layered windows
+    /// (AllowsTransparency) cannot use the DWM system blur, so this snapshot approximation
+    /// is the only way to get the effect while keeping the custom rounded corners. The
+    /// card rect is computed from the window geometry (Left/Top/Width + measured height)
+    /// instead of PointToScreen, which fails before the first Show (no PresentationSource
+    /// yet). The flyout always anchors near the tray on the primary taskbar, so the
+    /// primary screen's DPI is the right DIP→physical mapping. Failure (secure desktop,
+    /// driver oddities) keeps the XAML fallback background.
+    /// </summary>
+    public void CaptureBackdrop()
+    {
+        try
+        {
+            // Card rect in DIPs: window rect inset by the card's 8 Margin. PositionNearTray
+            // must run first; on first open ActualHeight is still 0 and the height comes
+            // from the Measure it performed.
+            double winHeight = ActualHeight > 0 ? ActualHeight : Card.DesiredSize.Height;
+            var margin = Card.Margin;
+            double dipX = Left + margin.Left;
+            double dipY = Top + margin.Top;
+            double dipW = Width - margin.Left - margin.Right;
+            double dipH = winHeight - margin.Top - margin.Bottom;
+            if (dipW <= 0 || dipH <= 0)
+                return;
+
+            float scale;
+            using (var screen = System.Drawing.Graphics.FromHwnd(IntPtr.Zero))
+                scale = screen.DpiX / 96f;
+
+            int x = (int)Math.Round(dipX * scale);
+            int y = (int)Math.Round(dipY * scale);
+            int w = (int)Math.Round(dipW * scale);
+            int h = (int)Math.Round(dipH * scale);
+
+            using var bmp = new System.Drawing.Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            using (var g = System.Drawing.Graphics.FromImage(bmp))
+            {
+                // CopyFromScreen throws on the secure desktop; the outer try covers it.
+                g.CopyFromScreen(x, y, 0, 0, new System.Drawing.Size(w, h));
+            }
+
+            // Downscale to ~120px on the long edge before blurring: heavy frost where the
+            // wallpaper only survives as gentle gradients, and the tiny buffer keeps the
+            // separable blur cheap. A fixed sample size also keeps the blur kernel visually
+            // constant across DPIs.
+            const int sample = 120;
+            double downscale = Math.Min(1.0, sample / (double)Math.Max(w, h));
+            int sw = Math.Max(4, (int)(w * downscale));
+            int sh = Math.Max(4, (int)(h * downscale));
+
+            var bytes = GetBitmapBytes(bmp, out int stride);
+            var blurred = BlurBytes(bytes, w, h, stride, sw, sh);
+
+            // Adaptive white lift: the panel's gray label text needs a light background
+            // whatever the wallpaper, so lift every pixel toward white by a per-capture
+            // amount that lands the snapshot's average on the target lightness — dark
+            // wallpapers lift hard, bright ones barely. The compressed blurred colour
+            // structure stays visible, which is what reads as frosted glass. The tint is
+            // baked into an opaque brush on purpose: any alpha < 1 would blend the dark
+            // raw pixels back over the lift and re-darken the card.
+            long lumaSum = 0;
+            for (int i = 0; i < blurred.Length; i += 4)
+                lumaSum += blurred[i + 2] * 30 + blurred[i + 1] * 59 + blurred[i] * 11;
+            int avg = (int)(lumaSum / (blurred.Length / 4) / 100);
+            const int targetLuma = 236;
+            double lift = Math.Clamp((targetLuma - avg) / (double)Math.Max(1, 255 - avg), 0, 1);
+            int liftNum = (int)(lift * 255);
+
+            // Rasterize at the downscaled size and let Stretch.Fill expand it back.
+            int strideOut = sw * 4;
+            var pixels = new byte[strideOut * sh];
+            for (int row = 0; row < sh; row++)
+            {
+                int srcBase = row * sw * 4;
+                for (int col = 0; col < sw; col++)
+                {
+                    int s = srcBase + col * 4;
+                    int d = row * strideOut + col * 4;
+                    pixels[d] = (byte)(blurred[s] + (255 - blurred[s]) * liftNum / 255);
+                    pixels[d + 1] = (byte)(blurred[s + 1] + (255 - blurred[s + 1]) * liftNum / 255);
+                    pixels[d + 2] = (byte)(blurred[s + 2] + (255 - blurred[s + 2]) * liftNum / 255);
+                    pixels[d + 3] = 0xFF;
+                }
+            }
+
+            var src = BitmapSource.Create(sw, sh, 96, 96, System.Windows.Media.PixelFormats.Bgra32, null,
+                pixels, strideOut);
+            src.Freeze();
+            var brush = new ImageBrush(src) { Stretch = Stretch.Fill };
+            brush.Freeze();
+            Card.Background = brush;
+        }
+        catch (Exception ex)
+        {
+            // Diagnostics only — the panel still shows with the plain fallback background.
+            try
+            {
+                var logPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "SonyHeadphonesController.diag.log");
+                System.IO.File.AppendAllText(logPath, $"[{DateTime.Now:HH:mm:ss.fff}] CaptureBackdrop failed: {ex}\n");
+            }
+            catch { /* logging must never break the panel */ }
+        }
+    }
+
+    private static byte[] GetBitmapBytes(System.Drawing.Bitmap bmp, out int stride)
+    {
+        var data = bmp.LockBits(new System.Drawing.Rectangle(0, 0, bmp.Width, bmp.Height),
+            System.Drawing.Imaging.ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        try
+        {
+            stride = data.Stride;
+            var bytes = new byte[data.Stride * bmp.Height];
+            Marshal.Copy(data.Scan0, bytes, 0, bytes.Length);
+            return bytes;
+        }
+        finally
+        {
+            bmp.UnlockBits(data);
+        }
+    }
+
+    /// <summary>
+    /// Separable box-blur (4 passes ≈ gaussian) on BGRA bytes. Radius is fixed in
+    /// downscaled-pixel space (≈12px) so the frosted look does not drift with DPI.
+    /// </summary>
+    private static byte[] BlurBytes(byte[] src, int w, int h, int stride, int sw, int sh)
+    {
+        // Nearest-neighbour downsample into a tightly packed sw×sh BGRA buffer.
+        var small = new byte[sw * sh * 4];
+        for (int y = 0; y < sh; y++)
+        {
+            int sy = Math.Min(h - 1, y * h / sh);
+            for (int x = 0; x < sw; x++)
+            {
+                int sx = Math.Min(w - 1, x * w / sw);
+                int s = sy * stride + sx * 4;
+                int d = (y * sw + x) * 4;
+                small[d] = src[s];
+                small[d + 1] = src[s + 1];
+                small[d + 2] = src[s + 2];
+                small[d + 3] = 0xFF;
+            }
+        }
+
+        var tmp = new byte[small.Length];
+        BoxPass(small, tmp, sw, sh, horizontal: true);
+        BoxPass(tmp, small, sw, sh, horizontal: false);
+        BoxPass(small, tmp, sw, sh, horizontal: true);
+        BoxPass(tmp, small, sw, sh, horizontal: false);
+        return small;
+    }
+
+    private static void BoxPass(byte[] input, byte[] output, int w, int h, bool horizontal)
+    {
+        const int radius = 12;
+        int outer = horizontal ? h : w;   // index of the pass dimension
+        int inner = horizontal ? w : h;   // length of each run
+        int stepIn = horizontal ? 4 : w * 4;
+        int stepOut = horizontal ? 4 : w * 4;
+
+        for (int o = 0; o < outer; o++)
+        {
+            int baseIdx = horizontal ? o * w * 4 : o * 4;
+            for (int c = 0; c < 4; c++)
+            {
+                long sum = 0;
+                for (int k = -radius; k <= radius; k++)
+                {
+                    int i = Math.Clamp(k, 0, inner - 1);
+                    sum += input[baseIdx + i * stepIn + c];
+                }
+                for (int i = 0; i < inner; i++)
+                {
+                    output[baseIdx + i * stepOut + c] = (byte)(sum / (radius * 2 + 1));
+                    int addIdx = Math.Clamp(i + radius + 1, 0, inner - 1);
+                    int subIdx = Math.Clamp(i - radius, 0, inner - 1);
+                    sum += input[baseIdx + addIdx * stepIn + c] - input[baseIdx + subIdx * stepIn + c];
+                }
+            }
+        }
     }
 
     /// <summary>Call on every show: fade + slight scale-in. Loaded only fires once.</summary>
