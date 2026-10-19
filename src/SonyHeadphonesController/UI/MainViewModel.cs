@@ -32,6 +32,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         TogglePanelCommand = new RelayCommand(_ => TogglePanel());
         ExitCommand = new RelayCommand(_ => Application.Current.Shutdown());
         SetAncCommand = new RelayCommand(param => _ = SetAncAsync(param));
+
+        // Startup settle: after the initial connect + first state pull, hand the pages that
+        // burst allocated back to the OS.
+        MemoryTrim.ScheduleTrim(TimeSpan.FromSeconds(30));
     }
 
     // ---------- Commands ----------
@@ -175,6 +179,13 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private static readonly string IconCachePath = System.IO.Path.Combine(
         System.IO.Path.GetTempPath(), "SonyHeadphonesController.tray.ico");
 
+    // Frozen icon instances keyed by (text, colour): the 15s fallback refresh re-raises
+    // BatteryChanged/AncChanged even when nothing changed, and redrawing through the whole
+    // RenderTargetBitmap→PNG→ICO→reload pipeline each time was the app's biggest idle
+    // allocation source. Rebuild only when the icon content actually changes.
+    private (string Text, Color Colour)? _iconKey;
+    private ImageSource _iconSource = null!;
+
     /// <summary>Tray icon drawn at runtime: battery percentage + colour coding.</summary>
     public ImageSource TrayIconSource
     {
@@ -192,6 +203,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
             string text = !IsConnected || pct < 0 ? "-" : pct.ToString();
 
+            if (_iconKey is (string kText, Color kColour) && kText == text && kColour == colour)
+                return _iconSource;
+
             // H.NotifyIcon's pipeline ends in System.Drawing.Icon(Stream), which requires a real
             // .ico file. Write an ICO with an embedded PNG (Vista+ format) and load as BitmapImage.
             DrawIconToIcoFile(text, colour, IconCachePath);
@@ -202,6 +216,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             bmp.UriSource = new Uri(IconCachePath, UriKind.Absolute);
             bmp.EndInit();
             bmp.Freeze();
+            _iconKey = (text, colour);
+            _iconSource = bmp;
             return bmp;
         }
     }
@@ -279,11 +295,21 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             OnPropertyChanged(name);
         }
         // H.NotifyIcon doesn't auto-refresh when the bound VM property changes;
-        // reassign through the control so the shell icon/tooltip update.
+        // reassign through the control so the shell icon/tooltip update. Reference-guard
+        // both: on cache hits the property returns the same frozen instance, and pushing
+        // it through the IconSource setter anyway would rerun the ImageSource→Icon
+        // conversion and shell update for nothing on every 15s refresh.
+        // H.NotifyIcon doesn't auto-refresh when the bound VM property changes;
+        // reassign through the control so the shell icon/tooltip update. Reference-guard
+        // both: on cache hits the property returns the same frozen instance, and pushing
+        // it through the IconSource setter anyway would rerun the ImageSource→Icon
+        // conversion and shell update for nothing on every 15s refresh.
         if (TrayIconOwner is not null)
         {
-            TrayIconOwner.ToolTipText = TrayToolTip;
-            TrayIconOwner.IconSource = TrayIconSource;
+            if (TrayIconOwner.ToolTipText != TrayToolTip)
+                TrayIconOwner.ToolTipText = TrayToolTip;
+            if (!ReferenceEquals(TrayIconOwner.IconSource, TrayIconSource))
+                TrayIconOwner.IconSource = TrayIconSource;
         }
     }
 

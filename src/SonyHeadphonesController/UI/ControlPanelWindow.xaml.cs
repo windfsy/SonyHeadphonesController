@@ -343,5 +343,8 @@ public partial class ControlPanelWindow : Window
         base.Hide();
         // Release Topmost so it doesn't linger over other windows while hidden.
         Topmost = false;
+        // The show cycle (backdrop capture, blur buffers, animations) inflates the working
+        // set; give it back once the panel goes idle-hidden.
+        MemoryTrim.ScheduleTrim(TimeSpan.FromSeconds(2));
     }
 }
