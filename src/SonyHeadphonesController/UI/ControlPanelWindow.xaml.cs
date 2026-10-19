@@ -198,7 +198,7 @@ public partial class ControlPanelWindow : Window
             for (int i = 0; i < blurred.Length; i += 4)
                 lumaSum += blurred[i + 2] * 30 + blurred[i + 1] * 59 + blurred[i] * 11;
             int avg = (int)(lumaSum / (blurred.Length / 4) / 100);
-            const int targetLuma = 236;
+            const int targetLuma = 210;
             double lift = Math.Clamp((targetLuma - avg) / (double)Math.Max(1, 255 - avg), 0, 1);
             int liftNum = (int)(lift * 255);
 

@@ -313,8 +313,13 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
-    /// <summary>Dynamic tooltip text for the tray icon.</summary>
-    public string TrayToolTip => $"{DeviceName} — {StateText}";
+    /// <summary>
+    /// Dynamic tooltip text for the tray icon. Multi-line while connected so the
+    /// battery levels are visible without opening the panel.
+    /// </summary>
+    public string TrayToolTip => IsConnected
+        ? $"✅已连接\n左：{BatteryLeftText}\n右：{BatteryRightText}\n机仓：{BatteryCaseText}"
+        : $"{DeviceName} — {StateText}";
 
     /// <summary>Set by TrayHostWindow so the VM can poke the TaskbarIcon.</summary>
     internal TaskbarIcon? TrayIconOwner { get; set; }
