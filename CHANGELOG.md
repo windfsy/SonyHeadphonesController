@@ -9,6 +9,12 @@
 
 ### 新增
 
+（暂无）
+
+## [0.1.1] - 2026-10-19
+
+### 新增
+
 - **面板毛玻璃背景**：分层窗口（AllowsTransparency）拿不到 DWM 系统模糊，采用快照方案——每次打开面板前截取其身后的屏幕区域，C# 分离式盒模糊（≈高斯）后铺成卡片背景；按快照平均亮度自适应提白（暗壁纸多提、亮壁纸少提），保证灰色标签文字在任何壁纸上都有对比度；截屏失败（安全桌面等）回退静态底色，失败记录 diag 日志
 - **面板视觉打磨**：卡片圆角 10→16，产品图上下边距加大
 - **面板顶部产品图**：展示 WF-1000XM5 官方渲染图（Sound Connect 云端资源，背景已去除）
@@ -56,5 +62,6 @@ MVP 首个发布版。
 
 - 基于 Sound Connect (Android) v13.3.0 APK 的逆向分析，实现 Sony MDR v2 蓝牙协议（明文 RFCOMM 通道），协议细节见 [docs/PROTOCOL_NOTES.md](docs/PROTOCOL_NOTES.md)
 
-[Unreleased]: https://github.com/wind.sy/SonyHeadphonesController/compare/0.1.0...HEAD
-[0.1.0]: https://github.com/wind.sy/SonyHeadphonesController/releases/tag/0.1.0
+[Unreleased]: https://github.com/windfsy/SonyHeadphonesController/compare/0.1.1...HEAD
+[0.1.1]: https://github.com/windfsy/SonyHeadphonesController/releases/tag/0.1.1
+[0.1.0]: https://github.com/windfsy/SonyHeadphonesController/releases/tag/0.1.0
