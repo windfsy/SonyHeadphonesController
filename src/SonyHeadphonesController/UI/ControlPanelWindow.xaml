@@ -155,7 +155,11 @@
                                     VerticalAlignment="Center"/>
                             <Ellipse x:Name="Knob" Width="14" Height="14" Fill="White"
                                      HorizontalAlignment="Left" Margin="3,0,0,0"
-                                     VerticalAlignment="Center"/>
+                                     VerticalAlignment="Center">
+                                <Ellipse.Effect>
+                                    <DropShadowEffect Color="Black" BlurRadius="3" ShadowDepth="1" Opacity="0.18"/>
+                                </Ellipse.Effect>
+                            </Ellipse>
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsChecked" Value="True">
