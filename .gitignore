@@ -15,8 +15,6 @@
 # Analysis workspace lives OUTSIDE the repo: ../_analysis_workspace/
 *.apk
 publish/
-publish_baseline/
-publish_new/
 
 # Local tooling residue
 .v2c/

@@ -1,6 +1,7 @@
 <Window x:Class="SonyCtrl.UI.ControlPanelWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:SonyCtrl.UI"
         Title="Sony 耳机控制"
         Icon="pack://application:,,,/Assets/app.ico"
         Width="300" SizeToContent="Height"
@@ -14,6 +15,7 @@
         Deactivated="OnDeactivated">
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <local:AncSegmentTextConverter x:Key="AncSegmentText"/>
 
         <!-- Text styles; each grays out when the enclosing disconnected section disables it -->
         <Style x:Key="LabelText" TargetType="TextBlock">
@@ -62,65 +64,43 @@
             </Style.Triggers>
         </Style>
 
+        <!-- Global text style: subtle dark halo under every label keeps text readable
+             even where the pinned frosted backdrop happens to sit dark. -->
+        <Style TargetType="TextBlock">
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect Color="Black" BlurRadius="2" ShadowDepth="0" Opacity="0.15"/>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Entrance animation runs in code-behind on every Show (Loaded only fires once).
              RenderTransform is rebuilt per Show because Setter-created values are frozen. -->
         <Style x:Key="FlyoutCard" TargetType="Border"/>
 
-        <!-- ANC three-state buttons; Tag=true marks the active mode, smooth hover/press transitions.
-             Background comes from TemplateBinding so the active-state DataTrigger (blue) can take effect;
-             hover/press darken via a black shade overlay that works on both gray and blue states. -->
-        <Style x:Key="AncButton" TargetType="Button">
-            <Setter Property="Padding" Value="0,8"/>
-            <Setter Property="FontSize" Value="13"/>
+        <!-- ANC segmented-slider segment: a bare transparent hit area over the shared
+             track. No hover/press visuals on purpose — feedback comes from the knob
+             sliding to the selected segment, so a second visual layer would fight the
+             slider metaphor. Without this template the default WPF Button chrome
+             (blue hover fill) would show through. -->
+        <Style x:Key="AncSegmentButton" TargetType="Button">
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Background" Value="#EDEDED"/>
+            <Setter Property="FontSize" Value="12"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Grid>
-                            <Border x:Name="Bd" CornerRadius="6"
-                                    Background="{TemplateBinding Background}"/>
-                            <Border x:Name="Shade" CornerRadius="6" Background="Black"
-                                    Opacity="0" IsHitTestVisible="False"/>
-                            <ContentPresenter Margin="{TemplateBinding Padding}"
-                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            <VisualStateManager.VisualStateGroups>
-                                <VisualStateGroup Name="CommonStates">
-                                    <VisualStateGroup.Transitions>
-                                        <VisualTransition GeneratedDuration="0:0:0.12">
-                                            <VisualTransition.GeneratedEasingFunction>
-                                                <QuadraticEase EasingMode="EaseOut"/>
-                                            </VisualTransition.GeneratedEasingFunction>
-                                        </VisualTransition>
-                                    </VisualStateGroup.Transitions>
-                                    <VisualState Name="Normal"/>
-                                    <VisualState Name="MouseOver">
-                                        <Storyboard>
-                                            <DoubleAnimation Storyboard.TargetName="Shade"
-                                                             Storyboard.TargetProperty="Opacity"
-                                                             To="0.08" Duration="0:0:0.08"/>
-                                        </Storyboard>
-                                    </VisualState>
-                                    <VisualState Name="Pressed">
-                                        <Storyboard>
-                                            <DoubleAnimation Storyboard.TargetName="Shade"
-                                                             Storyboard.TargetProperty="Opacity"
-                                                             To="0.16" Duration="0:0:0.04"/>
-                                        </Storyboard>
-                                    </VisualState>
-                                </VisualStateGroup>
-                            </VisualStateManager.VisualStateGroups>
-                        </Grid>
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#F0F0F0"/>
-                    <Setter Property="Foreground" Value="#C4C4C4"/>
-                    <Setter Property="Cursor" Value="Arrow"/>
-                </Trigger>
-            </Style.Triggers>
+        </Style>
+
+        <!-- ANC segmented slider: frosted track with a sliding knob. Clicking a label
+             jumps the knob (and fires the command); the knob itself is decorative so
+             dragging is unnecessary — the ANC state is a discrete three-way choice,
+             not a scrub value. -->
+        <Style x:Key="AncSegment" TargetType="Grid">
+            <Setter Property="Height" Value="34"/>
         </Style>
 
         <!-- Ambient level slider: modern bar look — rounded 10px track, blue rounded fill,
@@ -135,15 +115,15 @@
                     <ControlTemplate TargetType="Slider">
                         <Grid>
                             <Border x:Name="TrackBg" Height="10" CornerRadius="5"
-                                    Background="#E4E4E4" VerticalAlignment="Center"/>
+                                    Background="#30FFFFFF" VerticalAlignment="Center"/>
                             <Border x:Name="Fill" Height="10" CornerRadius="5"
-                                    Background="#0078D4" VerticalAlignment="Center"
+                                    Background="#7BA3B5" VerticalAlignment="Center"
                                     HorizontalAlignment="Left" Width="0"
                                     IsHitTestVisible="False"/>
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="TrackBg" Property="Background" Value="#EFEFEF"/>
+                                <Setter TargetName="TrackBg" Property="Background" Value="#20FFFFFF"/>
                                 <Setter TargetName="Fill" Property="Background" Value="#C9C9C9"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
@@ -161,20 +141,20 @@
                     <ControlTemplate TargetType="CheckBox">
                         <Grid>
                             <Border x:Name="Track" Width="36" Height="20" CornerRadius="10"
-                                    Background="#C8C8C8" VerticalAlignment="Center"/>
+                                    Background="#40FFFFFF" VerticalAlignment="Center"/>
                             <Ellipse x:Name="Knob" Width="14" Height="14" Fill="White"
                                      HorizontalAlignment="Left" Margin="3,0,0,0"
                                      VerticalAlignment="Center"/>
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="Track" Property="Background" Value="#0078D4"/>
+                                <Setter TargetName="Track" Property="Background" Value="#5B8FA8"/>
                                 <Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right"/>
                                 <Setter TargetName="Knob" Property="Margin" Value="0,0,3,0"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="Track" Property="Background" Value="#E4E4E4"/>
-                                <Setter TargetName="Knob" Property="Fill" Value="#F5F5F5"/>
+                                <Setter TargetName="Track" Property="Background" Value="#30FFFFFF"/>
+                                <Setter TargetName="Knob" Property="Fill" Value="#80FFFFFF"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -215,7 +195,18 @@
                 <TextBlock Grid.Column="0" Text="{Binding DeviceName}"
                            FontSize="14" FontWeight="SemiBold"/>
                 <TextBlock Grid.Column="1" Text="{Binding StateText}"
-                           FontSize="11" Foreground="#888" VerticalAlignment="Center"/>
+                           FontSize="11" VerticalAlignment="Center">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="#888"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                                    <Setter Property="Foreground" Value="#3D8B5F"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
             </Grid>
 
             <!-- Unresponsive banner (top, above all content) -->
@@ -262,61 +253,56 @@
                         </StackPanel>
                     </Grid>
 
-                    <!-- ANC three-state: implicit per-button Style with DataTrigger for active highlight -->
+                    <!-- ANC three-state: segmented slider — iOS-style: track and knob share
+                         the same height (knob inset 3px), the knob fills a full segment so
+                         the selected label sits on solid accent colour. -->
                     <TextBlock Text="噪声控制" Style="{StaticResource LabelText}" Margin="0,14,0,6"/>
-                    <UniformGrid Columns="3">
-                        <Button Content="降噪" Margin="0,0,6,0"
-                                Command="{Binding SetAncCommand}" CommandParameter="NoiseCancelling">
-                            <Button.Resources>
-                                <Style TargetType="Button" BasedOn="{StaticResource AncButton}">
-                                    <Style.Triggers>
-                                <MultiDataTrigger>
-                                    <MultiDataTrigger.Conditions>
-                                        <Condition Binding="{Binding IsNoiseCancelling}" Value="True"/>
-                                        <Condition Binding="{Binding IsConnected}" Value="True"/>
-                                    </MultiDataTrigger.Conditions>
-                                    <Setter Property="Background" Value="#0078D4"/>
-                                    <Setter Property="Foreground" Value="White"/>
-                                </MultiDataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Resources>
-                        </Button>
-                        <Button Content="通透" Margin="0,0,6,0"
-                                Command="{Binding SetAncCommand}" CommandParameter="AmbientSound">
-                            <Button.Resources>
-                                <Style TargetType="Button" BasedOn="{StaticResource AncButton}">
-                                    <Style.Triggers>
-                                <MultiDataTrigger>
-                                    <MultiDataTrigger.Conditions>
-                                        <Condition Binding="{Binding IsAmbientSound}" Value="True"/>
-                                        <Condition Binding="{Binding IsConnected}" Value="True"/>
-                                    </MultiDataTrigger.Conditions>
-                                    <Setter Property="Background" Value="#0078D4"/>
-                                    <Setter Property="Foreground" Value="White"/>
-                                </MultiDataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Resources>
-                        </Button>
-                        <Button Content="关闭"
-                                Command="{Binding SetAncCommand}" CommandParameter="Off">
-                            <Button.Resources>
-                                <Style TargetType="Button" BasedOn="{StaticResource AncButton}">
-                                    <Style.Triggers>
-                                <MultiDataTrigger>
-                                    <MultiDataTrigger.Conditions>
-                                        <Condition Binding="{Binding IsAncOff}" Value="True"/>
-                                        <Condition Binding="{Binding IsConnected}" Value="True"/>
-                                    </MultiDataTrigger.Conditions>
-                                    <Setter Property="Background" Value="#0078D4"/>
-                                    <Setter Property="Foreground" Value="White"/>
-                                </MultiDataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Resources>
-                        </Button>
-                    </UniformGrid>
+                    <Grid x:Name="AncContainer" Height="36" IsEnabled="{Binding IsConnected}">
+                        <Grid.Style>
+                            <Style TargetType="Grid">
+                                <Style.Triggers>
+                                    <!-- Dim the whole widget when disconnected: the knob and
+                                         track are not children of the enabled-state grid, so
+                                         the inherited IsEnabled grey-out cannot reach them. -->
+                                    <DataTrigger Binding="{Binding IsConnected}" Value="False">
+                                        <Setter Property="Opacity" Value="0.45"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Grid.Style>
+                        <Border CornerRadius="9"
+                                Background="#4DFFFFFF"
+                                BorderBrush="#26000000" BorderThickness="1"/>
+                        <!-- Knob: one full segment wide (inset 3px each side), positioned by code-behind -->
+                        <Border x:Name="AncKnob" Height="30" CornerRadius="7"
+                                Background="#5B8FA8" HorizontalAlignment="Left"
+                                VerticalAlignment="Center"
+                                BorderBrush="#33FFFFFF" BorderThickness="1"
+                                Margin="0">
+                            <Border.Effect>
+                                <DropShadowEffect Color="Black" BlurRadius="3" ShadowDepth="1" Opacity="0.18"/>
+                            </Border.Effect>
+                        </Border>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Button Grid.Column="0" Content="降噪"
+                                    Style="{StaticResource AncSegmentButton}"
+                                    Command="{Binding SetAncCommand}" CommandParameter="NoiseCancelling"
+                                    Foreground="{Binding IsNoiseCancelling, Converter={StaticResource AncSegmentText}}"/>
+                            <Button Grid.Column="1" Content="通透"
+                                    Style="{StaticResource AncSegmentButton}"
+                                    Command="{Binding SetAncCommand}" CommandParameter="AmbientSound"
+                                    Foreground="{Binding IsAmbientSound, Converter={StaticResource AncSegmentText}}"/>
+                            <Button Grid.Column="2" Content="关闭"
+                                    Style="{StaticResource AncSegmentButton}"
+                                    Command="{Binding SetAncCommand}" CommandParameter="Off"
+                                    Foreground="{Binding IsAncOff, Converter={StaticResource AncSegmentText}}"/>
+                        </Grid>
+                    </Grid>
 
                     <!-- Ambient level slider: bar style, commit debounced in code-behind -->
                     <Grid Margin="0,14,0,0">

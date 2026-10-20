@@ -13,6 +13,7 @@ public partial class ControlPanelWindow : Window
 {
     private readonly DispatcherTimer _ambientCommitTimer;
     private Border? _sliderFill;
+    private Border? _ancKnob;
     private bool _scrubbing;
 
     public ControlPanelWindow(MainViewModel vm)
@@ -32,10 +33,38 @@ public partial class ControlPanelWindow : Window
         Loaded += (_, _) =>
         {
             _sliderFill = (Border?)AmbientSlider.Template.FindName("Fill", AmbientSlider);
+            _ancKnob = AncKnob;
             UpdateSliderFill();
+            UpdateAncKnob();
         };
         AmbientSlider.ValueChanged += OnAmbientSliderChanged;
         AmbientSlider.SizeChanged += (_, _) => UpdateSliderFill();
+
+        // Reposition the ANC knob whenever the connection/ANC state changes.
+        vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(MainViewModel.IsNoiseCancelling)
+                or nameof(MainViewModel.IsAmbientSound) or nameof(MainViewModel.IsAncOff))
+                UpdateAncKnob();
+        };
+    }
+
+    /// <summary>
+    /// ANC segmented control: slide the knob to the segment matching the current mode.
+    /// Segment order matches the Grid columns: NoiseCancelling(0), AmbientSound(1), Off(2).
+    /// </summary>
+    private void UpdateAncKnob()
+    {
+        if (_ancKnob is null || _ancKnob.Parent is not Grid container || DataContext is not MainViewModel vm)
+            return;
+        // Measure the track from its container (window width is fixed but measure anyway);
+        // the knob is one segment wide minus a 3px inset on each side.
+        double trackWidth = container.ActualWidth > 0 ? container.ActualWidth : container.DesiredSize.Width;
+        if (trackWidth <= 0) return;
+        double segmentWidth = trackWidth / 3;
+        int index = vm.IsNoiseCancelling ? 0 : vm.IsAmbientSound ? 1 : 2;
+        _ancKnob.Width = segmentWidth - 6;
+        _ancKnob.Margin = new Thickness(index * segmentWidth + 3, 0, 0, 0);
     }
 
     /// <summary>
@@ -194,12 +223,13 @@ public partial class ControlPanelWindow : Window
             // structure stays visible, which is what reads as frosted glass. The tint is
             // baked into an opaque brush on purpose: any alpha < 1 would blend the dark
             // raw pixels back over the lift and re-darken the card.
-            long lumaSum = 0;
-            for (int i = 0; i < blurred.Length; i += 4)
-                lumaSum += blurred[i + 2] * 30 + blurred[i + 1] * 59 + blurred[i] * 11;
-            int avg = (int)(lumaSum / (blurred.Length / 4) / 100);
+            // Pin the lift instead of deriving it from the snapshot average: the blurred
+            // wallpaper still shows through, but the card's effective brightness is
+            // constant regardless of wallpaper, so the fixed dark text colours below
+            // always read. (Adaptive lift previously tuned to the wallpaper's average,
+            // which could push the card dark enough to swallow #888 gray labels.)
             const int targetLuma = 210;
-            double lift = Math.Clamp((targetLuma - avg) / (double)Math.Max(1, 255 - avg), 0, 1);
+            double lift = targetLuma / 255.0;
             int liftNum = (int)(lift * 255);
 
             // Rasterize at the downscaled size and let Stretch.Fill expand it back.
