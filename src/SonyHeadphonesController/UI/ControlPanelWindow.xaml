@@ -125,7 +125,7 @@
                             <Border x:Name="TrackBg" Height="10" CornerRadius="5"
                                     Background="#30FFFFFF" VerticalAlignment="Center"/>
                             <Border x:Name="Fill" Height="10" CornerRadius="5"
-                                    Background="#7BA3B5" VerticalAlignment="Center"
+                                    Background="#666666" VerticalAlignment="Center"
                                     HorizontalAlignment="Left" Width="0"
                                     IsHitTestVisible="False"/>
                         </Grid>
@@ -156,7 +156,7 @@
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="Track" Property="Background" Value="#5B8FA8"/>
+                                <Setter TargetName="Track" Property="Background" Value="#4D4D4D"/>
                                 <Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right"/>
                                 <Setter TargetName="Knob" Property="Margin" Value="0,0,3,0"/>
                             </Trigger>
@@ -283,7 +283,7 @@
                                 BorderBrush="#26000000" BorderThickness="1"/>
                         <!-- Knob: one full segment wide (inset 3px each side), positioned by code-behind -->
                         <Border x:Name="AncKnob" Height="30" CornerRadius="7"
-                                Background="#5B8FA8" HorizontalAlignment="Left"
+                                Background="#4D4D4D" HorizontalAlignment="Left"
                                 VerticalAlignment="Center"
                                 BorderBrush="#33FFFFFF" BorderThickness="1"
                                 Margin="0">
