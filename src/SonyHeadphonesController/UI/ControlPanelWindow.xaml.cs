@@ -5,7 +5,6 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 using System.Windows.Threading;
 
 namespace SonyCtrl.UI;
@@ -17,9 +16,6 @@ public partial class ControlPanelWindow : Window
     private Border? _ancKnob;
     private TranslateTransform? _ancKnobTransform;
     private int _ancKnobIndex = -1;   // segment the knob was last placed at (-1 = never placed)
-    private TranslateTransform? _toggleShift;
-    private Border? _toggleTrackOn;
-    private int? _toggleState;        // last knob state the toggle was animated to (null = never placed)
     private bool _scrubbing;
 
     public ControlPanelWindow(MainViewModel vm)
@@ -41,7 +37,6 @@ public partial class ControlPanelWindow : Window
             _sliderFill ??= (Border?)AmbientSlider.Template.FindName("Fill", AmbientSlider);
             UpdateSliderFill();
             UpdateAncKnob();
-            UpdateToggleKnob();
         };
         AmbientSlider.ValueChanged += OnAmbientSliderChanged;
         AmbientSlider.SizeChanged += (_, _) => UpdateSliderFill();
@@ -52,69 +47,7 @@ public partial class ControlPanelWindow : Window
             if (e.PropertyName is nameof(MainViewModel.IsNoiseCancelling)
                 or nameof(MainViewModel.IsAmbientSound) or nameof(MainViewModel.IsAncOff))
                 UpdateAncKnob();
-            else if (e.PropertyName is nameof(MainViewModel.IsVoiceFocus))
-                UpdateToggleKnob();
         };
-    }
-
-    /// <summary>
-    /// Voice-focus toggle: slide the knob and cross-fade the on-track, mirroring the ANC
-    /// knob's code-driven pattern. Trigger-setter approaches kept fighting the
-    /// animation's held value (the knob snapped back to the local transform value), so
-    /// the animations own the resting positions and the first placement is an instant
-    /// jump. State changes re-run this through the VM's PropertyChanged.
-    /// </summary>
-    private void UpdateToggleKnob()
-    {
-        if (DataContext is not MainViewModel vm) return;
-        // Template parts live in the template's namescope: VisualTreeHelper walking can't
-        // see them reliably, but Template.FindName does (same pattern as _sliderFill).
-        // The voice-focus toggle is the only CheckBox in the panel.
-        var toggle = FindVisualChild<CheckBox>(this);
-        if (toggle?.Template is null) return;
-        _toggleTrackOn ??= (Border?)toggle.Template.FindName("TrackOn", toggle);
-        if (_toggleShift is null && toggle.Template.FindName("Knob", toggle) is Ellipse knob)
-            _toggleShift = knob.RenderTransform as TranslateTransform;
-        if (_toggleShift is null || _toggleTrackOn is null) return;
-        int state = vm.IsVoiceFocus ? 1 : 0;
-        // The 15s fallback refresh re-raises IsVoiceFocus even when unchanged; skip so
-        // the transition doesn't replay on every refresh.
-        if (state == _toggleState) return;
-        bool wasPlaced = _toggleState is not null;
-        _toggleState = state;
-
-        double target = state == 1 ? 16 : 0;
-        if (wasPlaced)
-        {
-            var ease = new QuadraticEase { EasingMode = EasingMode.EaseOut };
-            var dur = TimeSpan.FromMilliseconds(150);
-            _toggleShift.BeginAnimation(TranslateTransform.XProperty,
-                new DoubleAnimation(target, dur) { EasingFunction = ease });
-            _toggleTrackOn.BeginAnimation(OpacityProperty,
-                new DoubleAnimation(state == 1 ? 1 : 0, dur) { EasingFunction = ease });
-        }
-        else
-        {
-            // Clear any held animation so the instant jump sticks.
-            _toggleShift.BeginAnimation(TranslateTransform.XProperty, null);
-            _toggleShift.X = target;
-            _toggleTrackOn.BeginAnimation(OpacityProperty, null);
-            _toggleTrackOn.Opacity = state == 1 ? 1 : 0;
-        }
-    }
-
-    /// <summary>Template parts are reachable only by walking the visual tree by name.</summary>
-    private static T? FindVisualChild<T>(DependencyObject root) where T : class
-    {
-        int count = VisualTreeHelper.GetChildrenCount(root);
-        for (int i = 0; i < count; i++)
-        {
-            var child = VisualTreeHelper.GetChild(root, i);
-            if (child is T match) return match;
-            var deep = FindVisualChild<T>(child);
-            if (deep is not null) return deep;
-        }
-        return null;
     }
 
     /// <summary>

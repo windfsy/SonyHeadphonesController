@@ -141,32 +141,29 @@
         </Style>
 
         <!-- Voice-focus toggle: compact switch matching the panel's rounded language.
-             All on/off transitions (knob slide + on-track cross-fade) are driven from
-             code-behind, mirroring the ANC segmented knob: trigger-setter approaches kept
-             fighting the animation's held value (the knob snapped back to whichever side
-             the local transform value was left at). -->
+             Trigger setters apply on first template application too, so an opening-state
+             synced before the panel shows still lands on the dark track. -->
         <Style x:Key="ToggleSwitch" TargetType="CheckBox">
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Focusable" Value="False"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="CheckBox">
-                        <Grid x:Name="ToggleRoot" Width="36" Height="20">
-                            <Border x:Name="TrackOff" CornerRadius="10"
+                        <Grid>
+                            <Border x:Name="Track" Width="36" Height="20" CornerRadius="10"
                                     Background="#40FFFFFF" VerticalAlignment="Center"/>
-                            <Border x:Name="TrackOn" CornerRadius="10"
-                                    Background="#4D4D4D" VerticalAlignment="Center" Opacity="0"/>
                             <Ellipse x:Name="Knob" Width="14" Height="14" Fill="White"
                                      HorizontalAlignment="Left" Margin="3,0,0,0"
-                                     VerticalAlignment="Center">
-                                <Ellipse.RenderTransform>
-                                    <TranslateTransform x:Name="KnobShift"/>
-                                </Ellipse.RenderTransform>
-                            </Ellipse>
+                                     VerticalAlignment="Center"/>
                         </Grid>
                         <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Track" Property="Background" Value="#4D4D4D"/>
+                                <Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right"/>
+                                <Setter TargetName="Knob" Property="Margin" Value="0,0,3,0"/>
+                            </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="TrackOff" Property="Background" Value="#30FFFFFF"/>
+                                <Setter TargetName="Track" Property="Background" Value="#30FFFFFF"/>
                                 <Setter TargetName="Knob" Property="Fill" Value="#80FFFFFF"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
