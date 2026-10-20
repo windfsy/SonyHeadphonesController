@@ -141,18 +141,17 @@
         </Style>
 
         <!-- Voice-focus toggle: compact switch matching the panel's rounded language.
-             Transitions are animated (150ms EaseOut, same feel as the ANC knob): the
-             knob slides via TranslateTransform.X (16px travel = 36 track - 14 knob -
-             2×3 inset) and the on-state track is a second Border cross-faded over the
-             off-state one, since a Background brush cannot be animated between colours
-             from a trigger without a colour-animation storyboard per state. -->
+             All on/off transitions (knob slide + on-track cross-fade) are driven from
+             code-behind, mirroring the ANC segmented knob: trigger-setter approaches kept
+             fighting the animation's held value (the knob snapped back to whichever side
+             the local transform value was left at). -->
         <Style x:Key="ToggleSwitch" TargetType="CheckBox">
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Focusable" Value="False"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="CheckBox">
-                        <Grid Width="36" Height="20">
+                        <Grid x:Name="ToggleRoot" Width="36" Height="20">
                             <Border x:Name="TrackOff" CornerRadius="10"
                                     Background="#40FFFFFF" VerticalAlignment="Center"/>
                             <Border x:Name="TrackOn" CornerRadius="10"
@@ -166,48 +165,6 @@
                             </Ellipse>
                         </Grid>
                         <ControlTemplate.Triggers>
-                            <Trigger Property="IsChecked" Value="True">
-                                <Trigger.EnterActions>
-                                    <BeginStoryboard>
-                                        <Storyboard>
-                                            <DoubleAnimation Storyboard.TargetName="TrackOn"
-                                                             Storyboard.TargetProperty="Opacity"
-                                                             To="1" Duration="0:0:0.15">
-                                                <DoubleAnimation.EasingFunction>
-                                                    <QuadraticEase EasingMode="EaseOut"/>
-                                                </DoubleAnimation.EasingFunction>
-                                            </DoubleAnimation>
-                                            <DoubleAnimation Storyboard.TargetName="KnobShift"
-                                                             Storyboard.TargetProperty="X"
-                                                             To="16" Duration="0:0:0.15">
-                                                <DoubleAnimation.EasingFunction>
-                                                    <QuadraticEase EasingMode="EaseOut"/>
-                                                </DoubleAnimation.EasingFunction>
-                                            </DoubleAnimation>
-                                        </Storyboard>
-                                    </BeginStoryboard>
-                                </Trigger.EnterActions>
-                                <Trigger.ExitActions>
-                                    <BeginStoryboard>
-                                        <Storyboard>
-                                            <DoubleAnimation Storyboard.TargetName="TrackOn"
-                                                             Storyboard.TargetProperty="Opacity"
-                                                             To="0" Duration="0:0:0.15">
-                                                <DoubleAnimation.EasingFunction>
-                                                    <QuadraticEase EasingMode="EaseOut"/>
-                                                </DoubleAnimation.EasingFunction>
-                                            </DoubleAnimation>
-                                            <DoubleAnimation Storyboard.TargetName="KnobShift"
-                                                             Storyboard.TargetProperty="X"
-                                                             To="0" Duration="0:0:0.15">
-                                                <DoubleAnimation.EasingFunction>
-                                                    <QuadraticEase EasingMode="EaseOut"/>
-                                                </DoubleAnimation.EasingFunction>
-                                            </DoubleAnimation>
-                                        </Storyboard>
-                                    </BeginStoryboard>
-                                </Trigger.ExitActions>
-                            </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="TrackOff" Property="Background" Value="#30FFFFFF"/>
                                 <Setter TargetName="Knob" Property="Fill" Value="#80FFFFFF"/>
