@@ -82,14 +82,22 @@
              track. No hover/press visuals on purpose — feedback comes from the knob
              sliding to the selected segment, so a second visual layer would fight the
              slider metaphor. Without this template the default WPF Button chrome
-             (blue hover fill) would show through. -->
+             (blue hover fill) would show through. The Border with a Transparent brush
+             is what makes the WHOLE segment clickable: a bare ContentPresenter only
+             hit-tests where it actually draws (the text), leaving the rest of the
+             segment dead. Transparent (unlike null) is hit-testable in WPF. -->
         <Style x:Key="AncSegmentButton" TargetType="Button">
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="FontSize" Value="12"/>
+            <!-- Mouse-driven flyout: the dotted keyboard-focus rectangle that WPF draws
+                 after a click reads as visual noise here. -->
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Border Background="Transparent">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
