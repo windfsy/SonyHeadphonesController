@@ -258,6 +258,9 @@ public partial class ControlPanelWindow : Window
             // constant regardless of wallpaper, so the fixed dark text colours below
             // always read. (Adaptive lift previously tuned to the wallpaper's average,
             // which could push the card dark enough to swallow #888 gray labels.)
+            // Opaque brush is a hard requirement: a translucent card would composite the
+            // UNBLURRED live screen over the lifted snapshot (alpha<1 re-darkens it into
+            // the flat gray seen on 2026-10-20), and the frost structure would be lost.
             const int targetLuma = 205;
             double lift = targetLuma / 255.0;
             int liftNum = (int)(lift * 255);
@@ -275,7 +278,7 @@ public partial class ControlPanelWindow : Window
                     pixels[d] = (byte)(blurred[s] + (255 - blurred[s]) * liftNum / 255);
                     pixels[d + 1] = (byte)(blurred[s + 1] + (255 - blurred[s + 1]) * liftNum / 255);
                     pixels[d + 2] = (byte)(blurred[s + 2] + (255 - blurred[s + 2]) * liftNum / 255);
-                    pixels[d + 3] = 0xCC;
+                    pixels[d + 3] = 0xFF;
                 }
             }
 
