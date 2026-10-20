@@ -151,7 +151,8 @@
                     <ControlTemplate TargetType="CheckBox">
                         <Grid>
                             <Border x:Name="Track" Width="36" Height="20" CornerRadius="10"
-                                    Background="#40FFFFFF" VerticalAlignment="Center"/>
+                                    Background="#4DFFFFFF" BorderBrush="#26000000" BorderThickness="1"
+                                    VerticalAlignment="Center"/>
                             <Ellipse x:Name="Knob" Width="14" Height="14" Fill="White"
                                      HorizontalAlignment="Left" Margin="3,0,0,0"
                                      VerticalAlignment="Center"/>
