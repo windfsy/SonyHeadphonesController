@@ -258,7 +258,7 @@ public partial class ControlPanelWindow : Window
             // constant regardless of wallpaper, so the fixed dark text colours below
             // always read. (Adaptive lift previously tuned to the wallpaper's average,
             // which could push the card dark enough to swallow #888 gray labels.)
-            const int targetLuma = 210;
+            const int targetLuma = 205;
             double lift = targetLuma / 255.0;
             int liftNum = (int)(lift * 255);
 
@@ -275,7 +275,7 @@ public partial class ControlPanelWindow : Window
                     pixels[d] = (byte)(blurred[s] + (255 - blurred[s]) * liftNum / 255);
                     pixels[d + 1] = (byte)(blurred[s + 1] + (255 - blurred[s + 1]) * liftNum / 255);
                     pixels[d + 2] = (byte)(blurred[s + 2] + (255 - blurred[s + 2]) * liftNum / 255);
-                    pixels[d + 3] = 0xFF;
+                    pixels[d + 3] = 0xCC;
                 }
             }
 
