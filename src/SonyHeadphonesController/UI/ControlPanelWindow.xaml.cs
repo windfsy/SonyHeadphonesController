@@ -14,6 +14,8 @@ public partial class ControlPanelWindow : Window
     private readonly DispatcherTimer _ambientCommitTimer;
     private Border? _sliderFill;
     private Border? _ancKnob;
+    private TranslateTransform? _ancKnobTransform;
+    private int _ancKnobIndex = -1;   // segment the knob was last placed at (-1 = never placed)
     private bool _scrubbing;
 
     public ControlPanelWindow(MainViewModel vm)
@@ -34,6 +36,8 @@ public partial class ControlPanelWindow : Window
         {
             _sliderFill = (Border?)AmbientSlider.Template.FindName("Fill", AmbientSlider);
             _ancKnob = AncKnob;
+            _ancKnobTransform = new TranslateTransform();
+            _ancKnob.RenderTransform = _ancKnobTransform;
             UpdateSliderFill();
             UpdateAncKnob();
         };
@@ -52,10 +56,14 @@ public partial class ControlPanelWindow : Window
     /// <summary>
     /// ANC segmented control: slide the knob to the segment matching the current mode.
     /// Segment order matches the Grid columns: NoiseCancelling(0), AmbientSound(1), Off(2).
+    /// The knob's layout position stays at the first segment; mode changes move it through
+    /// a RenderTransform animation so the selection glides instead of jumping. The very
+    /// first placement is an instant jump (sliding in on first open would look random).
     /// </summary>
     private void UpdateAncKnob()
     {
-        if (_ancKnob is null || _ancKnob.Parent is not Grid container || DataContext is not MainViewModel vm)
+        if (_ancKnob is null || _ancKnobTransform is null
+            || _ancKnob.Parent is not Grid container || DataContext is not MainViewModel vm)
             return;
         // Measure the track from its container (window width is fixed but measure anyway);
         // the knob is one segment wide minus a 3px inset on each side.
@@ -63,8 +71,30 @@ public partial class ControlPanelWindow : Window
         if (trackWidth <= 0) return;
         double segmentWidth = trackWidth / 3;
         int index = vm.IsNoiseCancelling ? 0 : vm.IsAmbientSound ? 1 : 2;
+
         _ancKnob.Width = segmentWidth - 6;
-        _ancKnob.Margin = new Thickness(index * segmentWidth + 3, 0, 0, 0);
+        // The 15s fallback refresh re-raises the ANC properties even when the mode did
+        // not change; without this guard every refresh would restart a pointless animation.
+        if (index == _ancKnobIndex) return;
+        bool wasPlaced = _ancKnobIndex >= 0;
+        _ancKnobIndex = index;
+
+        _ancKnob.Margin = new Thickness(3, 0, 0, 0);
+        double target = index * segmentWidth;
+        if (wasPlaced)
+        {
+            _ancKnobTransform.BeginAnimation(TranslateTransform.XProperty,
+                new DoubleAnimation(target, TimeSpan.FromMilliseconds(200))
+                {
+                    EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
+                });
+        }
+        else
+        {
+            // A held animation would keep overriding the base value; clear it for the jump.
+            _ancKnobTransform.BeginAnimation(TranslateTransform.XProperty, null);
+            _ancKnobTransform.X = target;
+        }
     }
 
     /// <summary>
