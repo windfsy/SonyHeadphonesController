@@ -28,6 +28,20 @@ internal static class Frame
     public const byte DataTypeDataMdrNo2 = 0x0E; // table2 commands
 
     /// <summary>
+    /// Ceiling for one payload. MDR control traffic is tens of bytes (the largest reply we have
+    /// captured — the device-info table — stays well under 1 KB). The ceiling exists so a
+    /// malformed or hostile length field can neither overflow the bounds check below nor force a
+    /// large allocation.
+    /// </summary>
+    public const int MaxPayloadBytes = 4096;
+
+    /// <summary>
+    /// Worst-case wire size of one frame once escaped (every payload byte may expand to two),
+    /// used by the reader loop to cap its accumulation buffer.
+    /// </summary>
+    public const int MaxEscapedFrameBytes = 2 * (6 + MaxPayloadBytes + 1);
+
+    /// <summary>
     /// Build a complete frame ready to write to the RFCOMM socket.
     /// The payload already contains its command bytes (e.g. 0x00 0x00 for INIT).
     /// </summary>
@@ -85,16 +99,21 @@ internal static class Frame
         if (unescaped.Length < 7)
             throw new FormatException($"Frame too short: {unescaped.Length} bytes (min 7)");
 
-        int declaredLen =
-            (unescaped[2] << 24) |
-            (unescaped[3] << 16) |
-            (unescaped[4] << 8) |
+        // Read the length as a long: with int arithmetic a high bit set in unescaped[2] turns the
+        // value negative, which silently defeats the bounds check below and indexes backwards.
+        long declaredLen =
+            ((long)unescaped[2] << 24) |
+            ((long)unescaped[3] << 16) |
+            ((long)unescaped[4] << 8) |
             unescaped[5];
+        if (declaredLen > MaxPayloadBytes)
+            throw new FormatException(
+                $"Declared payload length {declaredLen} exceeds the {MaxPayloadBytes}-byte ceiling");
         if (unescaped.Length < 6 + declaredLen + 1)
             throw new FormatException($"Declared payload length {declaredLen} exceeds available bytes");
 
         // Verify checksum over bytes [0 .. 6+declaredLen-1]; checksum sits at index 6+declaredLen.
-        int checksumIndex = 6 + declaredLen;
+        int checksumIndex = 6 + (int)declaredLen;
         byte expected = Sum8(unescaped, 0, checksumIndex);
         if (unescaped[checksumIndex] != expected)
             throw new FormatException(
@@ -102,8 +121,8 @@ internal static class Frame
 
         byte dataType = unescaped[0];
         byte seq = unescaped[1];
-        byte[] payload = new byte[declaredLen];
-        Buffer.BlockCopy(unescaped, 6, payload, 0, declaredLen);
+        byte[] payload = new byte[(int)declaredLen];
+        Buffer.BlockCopy(unescaped, 6, payload, 0, (int)declaredLen);
         return new Message(dataType, seq, payload);
     }
 

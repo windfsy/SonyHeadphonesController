@@ -225,6 +225,16 @@ internal sealed class MdrConnection : IDisposable
                 }
                 else
                 {
+                    // Cap accumulation. A peer that opens a frame with 0x3E and then never sends
+                    // 0x3C would otherwise grow this buffer without bound (memory exhaustion).
+                    // Over the cap the partial frame is dropped and we wait for the next start
+                    // marker to resynchronise.
+                    if (frameBuf.Length >= Frame.MaxEscapedFrameBytes)
+                    {
+                        frameBuf.SetLength(0);
+                        inFrame = false;
+                        continue;
+                    }
                     frameBuf.WriteByte(b);
                 }
             }
