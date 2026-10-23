@@ -2,7 +2,8 @@ name: Release
 
 on:
   push:
-    tags: ['v*']
+    # 两种 tag 形式都接受：与历史 release 一致的 `0.1.2`，以及带 v 前缀的 `v0.1.2`
+    tags: ['v*', '[0-9]*']
 
 jobs:
   release:

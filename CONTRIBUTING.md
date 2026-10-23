@@ -25,8 +25,10 @@ framework-dependent 发布，需要目标机器装有 .NET 10 运行时。
 正式发版走 GitHub Actions：先更新 CHANGELOG.md（新增 `## [x.y.z]` 小节），并将 `src/SonyHeadphonesController/SonyHeadphonesController.csproj` 的 `<Version>` 改为同一版本号，然后推 tag 触发：
 
 ```bash
-git tag vx.y.z && git push origin vx.y.z
+git tag -a x.y.z -m "x.y.z — <一句话主题>" && git push origin x.y.z
 ```
+
+（tag 名不带 `v` 前缀，与历史 release 保持一致；`vx.y.z` 也能触发 workflow。）
 
 Release workflow 会校验 tag 与 CHANGELOG 版本一致、构建零警告、打包 zip 并自动创建 GitHub Release。
 
