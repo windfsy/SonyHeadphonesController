@@ -19,3 +19,4 @@ publish/
 # Local tooling residue
 .v2c/
 .zcode/
+.workbuddy/
