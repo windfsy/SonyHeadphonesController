@@ -101,47 +101,13 @@ internal sealed class BthSocket : IDisposable
     [DllImport("ws2_32.dll", SetLastError = true)]
     private static extern int setsockopt(int s, int level, int optname, ref int optval, int optlen);
 
+    // send() takes a raw address rather than a managed array: retrying a partial write must
+    // resume at the byte offset the stack already accepted (see Send).
     [DllImport("ws2_32.dll", SetLastError = true)]
-    private static extern int send(int s, byte[] buf, int len, int flags);
+    private static extern int send(int s, IntPtr buf, int len, int flags);
 
     [DllImport("ws2_32.dll", SetLastError = true)]
     private static extern int recv(int s, byte[] buf, int len, int flags);
-
-    [DllImport("ws2_32.dll", SetLastError = true)]
-    private static extern int ioctlsocket(int s, int cmd, ref int argp);
-
-    private const int FIONBIO = unchecked((int)0x8004667E);
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct fd_set
-    {
-        public uint fd_count;
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 64)]
-        public int[] fd_array;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct TimeVal
-    {
-        public int tv_sec;
-        public int tv_usec;
-    }
-
-    [DllImport("ws2_32.dll", SetLastError = true)]
-    private static extern int select(int nfds, IntPtr readfds, IntPtr writefds, IntPtr exceptfds, ref TimeVal timeout);
-
-    private static IntPtr BuildFdSet(int socket)
-    {
-        var set = new fd_set
-        {
-            fd_count = 1,
-            fd_array = new int[64],
-        };
-        set.fd_array[0] = socket;
-        IntPtr p = Marshal.AllocHGlobal(Marshal.SizeOf<fd_set>());
-        Marshal.StructureToPtr(set, p, false);
-        return p;
-    }
 
     /// <summary>
     /// Connect to the given Bluetooth MAC, resolving the RFCOMM DLCI via SDP using
@@ -190,20 +156,32 @@ internal sealed class BthSocket : IDisposable
         _socket = s;
     }
 
+    /// <summary>
+    /// Send the whole buffer, resuming from the accepted offset on partial writes.
+    /// Advancing the address matters: re-sending from the array head would duplicate bytes on the
+    /// wire and desynchronise the frame.
+    /// </summary>
     public void Send(byte[] buffer)
     {
         if (_socket == INVALID_SOCKET) throw new InvalidOperationException("Not connected.");
-        int total = 0;
-        while (total < buffer.Length)
+
+        GCHandle pinned = GCHandle.Alloc(buffer, GCHandleType.Pinned);
+        try
         {
-            int sent = send(_socket, buffer, buffer.Length - total, 0);
-            if (sent == SOCKET_ERROR)
-                throw new System.Net.Sockets.SocketException(Marshal.GetLastWin32Error());
-            // send() with offset would need array slicing; we passed length-total but buffer pointer
-            // is the full array start. To keep it simple and correct, send the whole remaining slice:
-            // (For MVP-sized frames < 1KB this loop rarely iterates more than once.)
-            total += sent;
-            if (sent == 0) break;
+            IntPtr start = pinned.AddrOfPinnedObject();
+            int total = 0;
+            while (total < buffer.Length)
+            {
+                int sent = send(_socket, IntPtr.Add(start, total), buffer.Length - total, 0);
+                if (sent == SOCKET_ERROR)
+                    throw new System.Net.Sockets.SocketException(Marshal.GetLastWin32Error());
+                if (sent == 0) break;
+                total += sent;
+            }
+        }
+        finally
+        {
+            pinned.Free();
         }
     }
 
