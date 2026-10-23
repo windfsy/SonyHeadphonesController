@@ -11,6 +11,25 @@
 
 （暂无）
 
+## [0.1.2] - 2026-10-23
+
+品牌与工程化发布：补齐应用图标、README 主图与开源协作配套，功能与协议行为无变更。
+
+### 新增
+
+- **应用图标**：新增 `Assets/app.ico`（16/20/24/32/40/48/64/96/128/256 十档），通过 `ApplicationIcon` 嵌入 exe，
+  并作为控制面板与设备选择窗的窗口图标——此前 exe 使用 .NET 默认图标
+- **README 主图与徽章**：主图（产品标识 + 一句话介绍）置于 README 开头，补充 release / license / CI / 平台 / 运行时徽章
+- **下载安装章节**：说明 zip 获取、免安装运行与配置落点；注明托盘图标为电量徽章（与程序图标不同）的设计取舍
+- **工程元数据**：exe 属性面板现显示产品名、版本、描述、作者、版权与仓库地址（`Version` / `Product` / `Description` 等）
+- **安全策略**：新增 [SECURITY.md](SECURITY.md)——漏洞上报渠道、威胁模型（明文 RFCOMM 的信任边界、配置与日志范围）
+- **PR 模板**：`.github/PULL_REQUEST_TEMPLATE.md`，包含零警告构建与真机验证清单
+
+### 变更
+
+- 版本号 0.1.1 → 0.1.2
+- README 重排：功能 → 下载安装 → 运行要求 → 使用 → 排障 → 已知限制 → 开发，并补充许可与商标声明
+
 ## [0.1.1] - 2026-10-19
 
 ### 新增
@@ -62,6 +81,7 @@ MVP 首个发布版。
 
 - 基于 Sound Connect (Android) v13.3.0 APK 的逆向分析，实现 Sony MDR v2 蓝牙协议（明文 RFCOMM 通道），协议细节见 [docs/PROTOCOL_NOTES.md](docs/PROTOCOL_NOTES.md)
 
-[Unreleased]: https://github.com/windfsy/SonyHeadphonesController/compare/0.1.1...HEAD
+[Unreleased]: https://github.com/windfsy/SonyHeadphonesController/compare/0.1.2...HEAD
+[0.1.2]: https://github.com/windfsy/SonyHeadphonesController/releases/tag/0.1.2
 [0.1.1]: https://github.com/windfsy/SonyHeadphonesController/releases/tag/0.1.1
 [0.1.0]: https://github.com/windfsy/SonyHeadphonesController/releases/tag/0.1.0
