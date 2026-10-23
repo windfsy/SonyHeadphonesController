@@ -10,14 +10,20 @@ on:
     paths-ignore:
       - '**.md'
 
+# 最小权限：构建与产物上传都不需要写仓库（仓库也已把默认 token 权限设为 read）
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      # Actions 按 commit SHA 钉死（仓库已开启 sha_pinning_required）：tag/branch 可被移动，
+      # SHA 不能。升级时改 SHA 并同步注释里的版本号，或交给 Dependabot。
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
           dotnet-version: 10.0.x
 
@@ -29,7 +35,7 @@ jobs:
         run: dotnet publish src/SonyHeadphonesController -c Release -o publish
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: sony-headphones-controller
           path: publish/

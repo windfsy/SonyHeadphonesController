@@ -11,10 +11,12 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      # Actions 按 commit SHA 钉死（仓库已开启 sha_pinning_required）：tag/branch 可被移动，
+      # SHA 不能。升级时改 SHA 并同步注释里的版本号，或交给 Dependabot。
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
           dotnet-version: 10.0.x
 
@@ -41,7 +43,12 @@ jobs:
         run: |
           Remove-Item publish/*.pdb -ErrorAction SilentlyContinue
           $ver = "${env:GITHUB_REF_NAME}" -replace '^v', ''
-          Compress-Archive -Path publish/* -DestinationPath "SonyHeadphonesController-$ver-win-x64.zip"
+          $zip = "SonyHeadphonesController-$ver-win-x64.zip"
+          Compress-Archive -Path publish/* -DestinationPath $zip
+          # 仓库开启了不可变发布：release 一旦创建就补不了资产，校验值必须与 zip 同批上传
+          $hash = (Get-FileHash -Algorithm SHA256 $zip).Hash.ToLower()
+          "$hash  $zip" | Out-File "$zip.sha256" -Encoding ascii -NoNewline
+          Write-Output "sha256=$hash"
 
       - name: Create release
         shell: pwsh
@@ -50,6 +57,7 @@ jobs:
         run: |
           $ver = "${env:GITHUB_REF_NAME}" -replace '^v', ''
           $zip = "SonyHeadphonesController-$ver-win-x64.zip"
-          gh release create "${env:GITHUB_REF_NAME}" $zip `
+          # 两个资产在创建时一并提交（gh 内部先建草稿、上传、再发布）
+          gh release create "${env:GITHUB_REF_NAME}" $zip "$zip.sha256" `
             --title "$ver" `
             --generate-notes

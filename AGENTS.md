@@ -44,3 +44,6 @@ UI (WPF)  →  App (连接状态机/同步策略)  →  Mdr (协议帧/命令)  
 - 品牌资产三处同源，替换图标时须一起改：`src/SonyHeadphonesController/Assets/app.ico`（exe 图标 + 窗口图标，多尺寸 16–256）、`assets/icon.png`（README/社交图用 512×512）、`assets/hero.png`（README 开头主图）。exe 图标由 csproj `ApplicationIcon` 指定，窗口图标用 pack URI 引用同一 ico。
 - 托盘图标是**运行时绘制的电量徽章**（见 `MainViewModel.TrayIconSource`），刻意不是程序图标——别"顺手统一"，那会让电量在托盘上不可见。
 - 发版两处版本号必须同步：`CHANGELOG.md` 顶部新增 `## [x.y.z]` 小节 + csproj `<Version>`；Release workflow 会校验 tag 与 CHANGELOG 一致，不一致直接失败。
+- **Actions 一律按 commit SHA 钉死**（形如 `uses: actions/checkout@<40位SHA> # v4.4.0`）：仓库开启了 `sha_pinning_required`，写成 `@v4` 会直接跑不起来。升级时改 SHA 并同步注释里的版本号。
+- **发布资产不可变**：仓库开启了 immutable releases，release 一旦创建就补不了资产；凡是要随包发布的文件（如 `.sha256`）必须在 `gh release create` 时一并传入。
+- **协议解析不设信任边界**：`Mdr/` 与 `Transport/` 处理的是外部设备发来的字节——长度字段、累积缓冲、重试偏移都要有上限与校验，改动时先读 docs/PROTOCOL_NOTES.md。

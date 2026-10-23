@@ -7,9 +7,26 @@
 
 ## [Unreleased]
 
-### 新增
+### 修复
 
-（暂无）
+- **帧缓冲无上限（内存耗尽）**：对端用 `0x3E` 开启一帧后若迟迟不发 `0x3C`，读线程的累积缓冲会无限增长；
+  现按 `Frame.MaxEscapedFrameBytes`（≈8 KB，为载荷上限转义后的最坏情况）封顶，超限丢弃半帧并等下一个起始标记重同步
+- **长度字段符号溢出**：`Frame.Decode` 原先用 int 拼接 4 字节长度，最高位为 1 时溢出为负，
+  `6 + declaredLen + 1` 的边界判断随之失效并以负索引访问缓冲；改为 long 读取，并新增 `MaxPayloadBytes`（4 KB）上限，
+  超限按 `FormatException` 处理（由上层 catch 记录日志，不再依赖异常类型兜底）
+- **`BthSocket.Send` 部分发送重发已发字节**：重试时未推进偏移（`send` 的 P/Invoke 只有数组头地址），
+  底层只接受部分字节时会把已发出的字节再发一遍，导致帧损坏；改为传裸地址并随累计字节数推进
+- **配置写入非原子**：`AppConfig.Save` 改为写临时文件后原子替换，避免进程在写盘途中退出留下半截 JSON
+  （`Load` 会静默丢弃损坏配置，代价是用户重选设备）
+
+### 变更
+
+- 删除 `BthSocket` 中未使用的 `select` / `fd_set` / `TimeVal` / `ioctlsocket` / `FIONBIO` / `BuildFdSet`
+  （`BuildFdSet` 的 `AllocHGlobal` 没有配对释放，留着是隐患）
+- CI / Release 的 Actions 全部按 commit SHA 钉死（checkout v4.4.0、setup-dotnet v4.3.1、upload-artifact v4.6.2），
+  仓库侧开启 `sha_pinning_required` 与「仅允许 GitHub 官方 + 已验证创建者」的 Actions 白名单
+- CI 显式声明 `permissions: contents: read`（最小权限）
+- Release 新增 `.sha256` 校验文件并与 zip 同批上传——不可变发布下资产无法补传，校验值只能随包生成
 
 ## [0.1.2] - 2026-10-23
 
