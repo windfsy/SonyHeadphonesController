@@ -9,6 +9,20 @@
     <RootNamespace>SonyCtrl</RootNamespace>
     <AssemblyName>SonyHeadphonesController</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <!-- 版本元数据：exe 属性面板与「应用和功能」中的展示信息 -->
+  <PropertyGroup>
+    <Version>0.1.1</Version>
+    <Product>Sony Headphones Controller</Product>
+    <AssemblyTitle>Sony Headphones Controller</AssemblyTitle>
+    <Description>Windows 托盘常驻的 Sony WF-1000XM5 控制器 — ANC 切换与电量查看</Description>
+    <Authors>windfsy</Authors>
+    <Copyright>Copyright (c) 2026 wind.sy</Copyright>
+    <RepositoryUrl>https://github.com/windfsy/SonyHeadphonesController</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/windfsy/SonyHeadphonesController</PackageProjectUrl>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,6 +33,8 @@
     <Resource Include="UI\Assets\xm5_black.png" />
     <Resource Include="UI\Assets\xm5_silver.png" />
     <Resource Include="UI\Assets\xm5_pink.png" />
+    <!-- 窗口图标（pack URI 引用），exe 图标由 ApplicationIcon 单独嵌入 -->
+    <Resource Include="Assets\app.ico" />
   </ItemGroup>
 
 </Project>
