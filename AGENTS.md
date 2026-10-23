@@ -41,3 +41,6 @@ UI (WPF)  →  App (连接状态机/同步策略)  →  Mdr (协议帧/命令)  
 
 - 提交信息：Conventional Commits 中文风格（`fix(UI): ...`、`docs: ...`），每个提交自洽可构建；任务完成后顺手 commit（用户全局要求）。
 - 仅经典蓝牙 RFCOMM；BLE GATT 是预留扩展。音量控制明确不在范围（见 README「已知限制」）。
+- 品牌资产三处同源，替换图标时须一起改：`src/SonyHeadphonesController/Assets/app.ico`（exe 图标 + 窗口图标，多尺寸 16–256）、`assets/icon.png`（README/社交图用 512×512）、`assets/hero.png`（README 开头主图）。exe 图标由 csproj `ApplicationIcon` 指定，窗口图标用 pack URI 引用同一 ico。
+- 托盘图标是**运行时绘制的电量徽章**（见 `MainViewModel.TrayIconSource`），刻意不是程序图标——别"顺手统一"，那会让电量在托盘上不可见。
+- 发版两处版本号必须同步：`CHANGELOG.md` 顶部新增 `## [x.y.z]` 小节 + csproj `<Version>`；Release workflow 会校验 tag 与 CHANGELOG 一致，不一致直接失败。

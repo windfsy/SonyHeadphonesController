@@ -22,7 +22,7 @@ dotnet publish src/SonyHeadphonesController -c Release -o publish
 
 framework-dependent 发布，需要目标机器装有 .NET 10 运行时。
 
-正式发版走 GitHub Actions：先更新 CHANGELOG.md（新增 `## [x.y.z]` 小节），然后推 tag 触发：
+正式发版走 GitHub Actions：先更新 CHANGELOG.md（新增 `## [x.y.z]` 小节），并将 `src/SonyHeadphonesController/SonyHeadphonesController.csproj` 的 `<Version>` 改为同一版本号，然后推 tag 触发：
 
 ```bash
 git tag vx.y.z && git push origin vx.y.z
@@ -51,3 +51,7 @@ Release workflow 会校验 tag 与 CHANGELOG 版本一致、构建零警告、�
 ## 行为准则
 
 保持友善与尊重，专注技术讨论。
+
+## 安全问题
+
+发现漏洞请勿公开提交 Issue，走 [SECURITY.md](SECURITY.md) 中的私下渠道。
