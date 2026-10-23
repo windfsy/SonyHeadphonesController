@@ -2,6 +2,8 @@
   <img src="assets/hero.png" alt="Sony Headphones Controller — Windows 托盘控制器，电量监控与配置调节" width="100%">
 </p>
 
+<h1 align="center">Sony Headphones Controller</h1>
+
 <p align="center">
   <a href="https://github.com/windfsy/SonyHeadphonesController/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/windfsy/SonyHeadphonesController?sort=semver&label=release&color=157C8F"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/windfsy/SonyHeadphonesController?color=157C8F"></a>
