@@ -42,6 +42,10 @@ public sealed class AppConfig
     public void Save()
     {
         Directory.CreateDirectory(ConfigDir);
-        File.WriteAllText(ConfigPath, JsonSerializer.Serialize(this, JsonOpts));
+        // Write-then-rename: a crash mid-write leaves the previous config intact instead of a
+        // truncated JSON file, which Load would silently discard (forcing a device re-pick).
+        string temp = ConfigPath + ".tmp";
+        File.WriteAllText(temp, JsonSerializer.Serialize(this, JsonOpts));
+        File.Move(temp, ConfigPath, overwrite: true);
     }
 }
