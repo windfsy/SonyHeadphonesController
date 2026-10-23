@@ -5,6 +5,24 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### 新增
+
+（暂无）
+
+## [0.1.3] - 2026-10-23
+
+面板视觉重整 + 协议健壮性加固：外观与交互是本版主线，同时修掉四处解析与 IO 缺陷。
+
+### 新增
+
+- **面板视觉重整**：ANC 三态改为分段滑块（滑动动画过渡，替代生硬跳位；命中区扩至整段，去掉点击后的虚线焦点框），
+  控件透明化 + 莫奈色板，毛玻璃底色降至 205 并以 80% 不透明度铺底
+- **关注语音开关**：滑钮平移 + 轨道淡入的代码驱动动画；关闭态加深底色并加细边框（半透明白叠白底对比度不足），
+  滑钮投影与 ANC 滑钮同参数
+- **托盘 tooltip**：已连接态显示多行电量（左耳 / 右耳 / 充电盒），不打开面板也能看到
+
 ### 修复
 
 - **帧缓冲无上限（内存耗尽）**：对端用 `0x3E` 开启一帧后若迟迟不发 `0x3C`，读线程的累积缓冲会无限增长；
@@ -16,13 +34,18 @@
   底层只接受部分字节时会把已发出的字节再发一遍，导致帧损坏；改为传裸地址并随累计字节数推进
 - **配置写入非原子**：`AppConfig.Save` 改为写临时文件后原子替换，避免进程在写盘途中退出留下半截 JSON
   （`Load` 会静默丢弃损坏配置，代价是用户重选设备）
+- **毛玻璃快照恢复不透明画笔**：半透明画笔会让未模糊的实时画面透回来，把自适应提白压成平灰
 
 ### 变更
 
+- **常驻内存大幅下降**：空闲工作集 110–120MB → 25–40MB（实测真机连接态）
+  - **托盘图标按需重绘**：15s 兜底轮询即使状态无变化也会重走整套 DrawingVisual→RenderTargetBitmap→PNG 编码→写盘→重读管线（空闲期最大分配源）；现按 (文本,颜色) 缓存冻结位图，状态不变零分配零 IO，图标更新仅在电量/连接真实变化时发生
+  - **空闲工作集回落**：启动稳定后（30s）与面板隐藏后（2s）各做一次 GC 回收 + `SetProcessWorkingSetSize` 归还页面；打开面板触发的内存增长（截屏模糊、渲染栈）在面板收起后随之回落
+  - 实测：空闲连接态不再出现每 15s 的内存锯齿与缓慢爬升（原 4 分钟 64→71MB）；GC 托管堆稳定 ~1MB
 - 删除 `BthSocket` 中未使用的 `select` / `fd_set` / `TimeVal` / `ioctlsocket` / `FIONBIO` / `BuildFdSet`
   （`BuildFdSet` 的 `AllocHGlobal` 没有配对释放，留着是隐患）
 - CI / Release 的 Actions 全部按 commit SHA 钉死（checkout v4.4.0、setup-dotnet v4.3.1、upload-artifact v4.6.2），
-  仓库侧开启 `sha_pinning_required` 与「仅允许 GitHub 官方 + 已验证创建者」的 Actions 白名单
+  仓库侧开启 `sha_pinning_required` 与「仅允许 GitHub 官方」的 Actions 白名单
 - CI 显式声明 `permissions: contents: read`（最小权限）
 - Release 新增 `.sha256` 校验文件并与 zip 同批上传——不可变发布下资产无法补传，校验值只能随包生成
 
@@ -45,10 +68,6 @@
 - 版本号 0.1.1 → 0.1.2
 - README 重排：功能 → 下载安装 → 运行要求 → 使用 → 排障 → 已知限制 → 开发，并补充许可与商标声明
 - Release workflow 的触发 tag 放宽为 `v*` 与纯版本号（`0.1.2`），与历史 release 命名及 CHANGELOG 链接保持一致
-- **常驻内存大幅下降**：空闲工作集 110–120MB → 25–40MB（实测真机连接态）
-  - **托盘图标按需重绘**：15s 兜底轮询即使状态无变化也会重走整套 DrawingVisual→RenderTargetBitmap→PNG 编码→写盘→重读管线（空闲期最大分配源）；现按 (文本,颜色) 缓存冻结位图，状态不变零分配零 IO，图标更新仅在电量/连接真实变化时发生
-  - **空闲工作集回落**：启动稳定后（30s）与面板隐藏后（2s）各做一次 GC 回收 + `SetProcessWorkingSetSize` 归还页面；打开面板触发的内存增长（截屏模糊、渲染栈）在面板收起后随之回落
-  - 实测：空闲连接态不再出现每 15s 的内存锯齿与缓慢爬升（原 4 分钟 64→71MB）；GC 托管堆稳定 ~1MB
 
 ## [0.1.1] - 2026-10-19
 
@@ -101,7 +120,8 @@ MVP 首个发布版。
 
 - 基于 Sound Connect (Android) v13.3.0 APK 的逆向分析，实现 Sony MDR v2 蓝牙协议（明文 RFCOMM 通道），协议细节见 [docs/PROTOCOL_NOTES.md](docs/PROTOCOL_NOTES.md)
 
-[Unreleased]: https://github.com/windfsy/SonyHeadphonesController/compare/0.1.2...HEAD
+[Unreleased]: https://github.com/windfsy/SonyHeadphonesController/compare/0.1.3...HEAD
+[0.1.3]: https://github.com/windfsy/SonyHeadphonesController/releases/tag/0.1.3
 [0.1.2]: https://github.com/windfsy/SonyHeadphonesController/releases/tag/0.1.2
 [0.1.1]: https://github.com/windfsy/SonyHeadphonesController/releases/tag/0.1.1
 [0.1.0]: https://github.com/windfsy/SonyHeadphonesController/releases/tag/0.1.0

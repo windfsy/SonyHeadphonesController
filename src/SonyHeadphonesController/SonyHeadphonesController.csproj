@@ -14,7 +14,7 @@
 
   <!-- 版本元数据：exe 属性面板与「应用和功能」中的展示信息 -->
   <PropertyGroup>
-    <Version>0.1.1</Version>
+    <Version>0.1.3</Version>
     <Product>Sony Headphones Controller</Product>
     <AssemblyTitle>Sony Headphones Controller</AssemblyTitle>
     <Description>Windows 托盘常驻的 Sony WF-1000XM5 控制器 — ANC 切换与电量查看</Description>
